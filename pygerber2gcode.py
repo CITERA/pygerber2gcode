@@ -35,8 +35,13 @@ DRILL_DEPTH = -1.2#Drill depth
 CUT_DEPTH = -0.07	#pattern cutting depth
 TOOL_D = 0.2		#Tool diameter
 DRILL_D = 0		#Drill diameter
+EDGE_TOOL_D = 1.0		#Edge Tool diameter
+EDGE_DEPTH = -1.2 #edge depth
+EDGE_SPEED = 80	#Edge speed
+EDGE_Z_SPEED = 60	#Edge down speed
 CAD_UNIT = MIL/10
-
+MERGE_DRILL_DATA = 0
+Z_STEP = 0.5
 #Global variable
 gXMIN = HUGE
 gYMIN = HUGE
@@ -44,6 +49,7 @@ gXSHIFT = 0
 gYSHIFT = 0
 gGCODE_DATA = ""
 gDRILL_DATA = ""
+gEDGE_DATA = ""
 gTMP_X = INI_X 
 gTMP_Y = INI_Y
 gTMP_Z = INI_Z
@@ -56,10 +62,13 @@ gDCODE = [0]*100
 g54_FLAG = 0
 gFIG_NUM = 0
 gDRILL_TYPE = [0]*100
+gDRILL_D = 0
 gPOLYGONS = []
 gLINES = []
+gEDGES = []
 gDRILLS = []
 gGCODES = []
+gUNIT = 1
 
 #window class
 class MainWindow(wx.Frame):
@@ -412,22 +421,22 @@ class MachineSetup(wx.Dialog):
 
 	def OnApply(self,e):
 		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT
-		INI_X = self.inix.GetValue()
-		INI_Y = self.iniy.GetValue()
-		INI_Z = self.iniz.GetValue()
-		MOVE_HEIGHT = self.moveh.GetValue()
-		IN_INCH_FLAG = self.rb1.GetSelection()
-		OUT_INCH_FLAG = self.rb2.GetSelection()
+		INI_X = float(self.inix.GetValue())
+		INI_Y = float(self.iniy.GetValue())
+		INI_Z = float(self.iniz.GetValue())
+		MOVE_HEIGHT = int(float(self.moveh.GetValue())
+		IN_INCH_FLAG = int(self.rb1.GetSelection())
+		OUT_INCH_FLAG = int(self.rb2.GetSelection())
 		MCODE_FLAG = int(self.cb1.IsChecked())
-		XY_SPEED = self.xyspeed.GetValue()
-		Z_SPEED = self.zspeed.GetValue()
-		LEFT_X = self.leftx.GetValue()
-		LOWER_Y = self.lowy.GetValue()
-		DRILL_SPEED = self.drillspeed.GetValue()
-		DRILL_DEPTH = self.drilldep.GetValue()
-		CUT_DEPTH = self.cutdep.GetValue()
-		TOOL_D = self.toold.GetValue()
-		DRILL_D = self.drilld.GetValue()
+		XY_SPEED = int(self.xyspeed.GetValue())
+		Z_SPEED = int(self.zspeed.GetValue())
+		LEFT_X = float(self.leftx.GetValue())
+		LOWER_Y = float(self.lowy.GetValue())
+		DRILL_SPEED = int(self.drillspeed.GetValue())
+		DRILL_DEPTH = int(self.drilldep.GetValue())
+		CUT_DEPTH = float(self.cutdep.GetValue())
+		TOOL_D = float(self.toold.GetValue())
+		DRILL_D = float(self.drilld.GetValue())
 		CAD_UNIT = float(self.cadunit.GetValue())
 		#show_all_values()
 		self.Close(True)  # Close the frame.
@@ -435,22 +444,22 @@ class MachineSetup(wx.Dialog):
 		self.Close(True)  # Close the frame.
 	def OnSave(self,e):
 		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT
-		INI_X = self.inix.GetValue()
-		INI_Y = self.iniy.GetValue()
-		INI_Z = self.iniz.GetValue()
-		MOVE_HEIGHT = self.moveh.GetValue()
-		IN_INCH_FLAG = self.rb1.GetSelection()
-		OUT_INCH_FLAG = self.rb2.GetSelection()
+		INI_X = float(self.inix.GetValue())
+		INI_Y = float(self.iniy.GetValue())
+		INI_Z = float(self.iniz.GetValue())
+		MOVE_HEIGHT = int(float(self.moveh.GetValue())
+		IN_INCH_FLAG = int(self.rb1.GetSelection())
+		OUT_INCH_FLAG = int(self.rb2.GetSelection())
 		MCODE_FLAG = int(self.cb1.IsChecked())
-		XY_SPEED = self.xyspeed.GetValue()
-		Z_SPEED = self.zspeed.GetValue()
-		LEFT_X = self.leftx.GetValue()
-		LOWER_Y = self.lowy.GetValue()
-		DRILL_SPEED = self.drillspeed.GetValue()
-		DRILL_DEPTH = self.drilldep.GetValue()
-		CUT_DEPTH = self.cutdep.GetValue()
-		TOOL_D = self.toold.GetValue()
-		DRILL_D = self.drilld.GetValue()
+		XY_SPEED = int(self.xyspeed.GetValue())
+		Z_SPEED = int(self.zspeed.GetValue())
+		LEFT_X = float(self.leftx.GetValue())
+		LOWER_Y = float(self.lowy.GetValue())
+		DRILL_SPEED = int(self.drillspeed.GetValue())
+		DRILL_DEPTH = int(self.drilldep.GetValue())
+		CUT_DEPTH = float(self.cutdep.GetValue())
+		TOOL_D = float(self.toold.GetValue())
+		DRILL_D = float(self.drilld.GetValue())
 		CAD_UNIT = float(self.cadunit.GetValue())
 		save_config()
 		self.Close(True)  # Close the frame.
@@ -475,10 +484,10 @@ class LINE:
 		self.delete = delete
 
 class DRILL:
-	def __init__(self, x, y, r, delete):
+	def __init__(self, x, y, d, delete):
 		self.x = x
 		self.y = y
-		self.r = r
+		self.d = d
 		self.delete = delete
 
 class D_DATA:
@@ -599,8 +608,8 @@ def gcode_init():
 		gGCODE_DATA += "M08\n"
 
 	gDRILL_DATA = gGCODE_DATA
-	print "in unit = "+str(IN_INCH_FLAG)
-	print "out unit = "+str(OUT_INCH_FLAG)
+	#print "in unit = "+str(IN_INCH_FLAG)
+	#print "out unit = "+str(OUT_INCH_FLAG)
 
 def get_date():
 	d = datetime.datetime.today()
@@ -1403,25 +1412,25 @@ def do_drill(drill_sw):
 
 def move_drill(x,y):
 	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z
-	out_data = "G00"
+	xy_data = "G00"
+	out_data = ""
 	#print out_data
 	gcode_tmp_flag = 0
 	if(x != gTMP_DRILL_X):
 		gTMP_DRILL_X = x
-		out_data += "X" + str(x)
+		xy_data += "X" + str(x)
 		gcode_tmp_flag=1
 	if(y != gTMP_DRILL_X):
 		gTMP_DRILL_X = y
-		out_data +="Y" + str(y)
+		xy_data += "Y" + str(y)
 		gcode_tmp_flag = 1
 	if(MOVE_HEIGHT!=gTMP_DRILL_Z):
 		gTMP_DRILL_Z = MOVE_HEIGHT
 		#Goto moving Z position
-		#out_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
-		return "G00Z" + str(MOVE_HEIGHT) + "\n"
+		out_data = "G00Z" + str(MOVE_HEIGHT) + "\n"
 	if(gcode_tmp_flag):
 		#Goto initial X-Y position
-		return out_data + "\n"
+		return out_data + xy_data + "\n"
 	else:
 		return
 
