@@ -3,6 +3,7 @@
 
 from string import *
 from math import *
+#from struct import *
 import os
 import sys
 import datetime
@@ -12,10 +13,11 @@ import re
 #Global Constant
 HUGE = 1e10
 TINY = 1e-6
+MERGINE = 1e-6
 INCH = 25.4 #mm
 MIL = INCH/1000
 CAD_UNIT = MIL/10
-
+CONFIG_FILE = "./pyg2g.conf"
 #Set
 INI_X = 0
 INI_Y = 0
@@ -32,8 +34,13 @@ DRILL_SPEED = 50	#Drill down speed
 DRILL_DEPTH = -1.2#Drill depth
 CUT_DEPTH = -0.07	#pattern cutting depth
 TOOL_D = 0.2		#Tool diameter
-DRILL_D = 0		#Drill diameter
-
+DRILL_D = 0.8		#Drill diameter
+EDGE_TOOL_D = 1.0		#Edge Tool diameter
+EDGE_DEPTH = -1.2 #edge depth
+EDGE_SPEED = 80	#Edge cut speed
+EDGE_Z_SPEED = 60	#Edge down speed
+MERGE_DRILL_DATA = 0
+Z_STEP = -0.5
 #Global variable
 gXMIN = HUGE
 gYMIN = HUGE
@@ -41,23 +48,29 @@ gXSHIFT = 0
 gYSHIFT = 0
 gGCODE_DATA = ""
 gDRILL_DATA = ""
+gEDGE_DATA = ""
 gTMP_X = INI_X 
 gTMP_Y = INI_Y
 gTMP_Z = INI_Z
 gTMP_DRILL_X = INI_X 
 gTMP_DRILL_Y = INI_Y
 gTMP_DRILL_Z = INI_Z
+gTMP_EDGE_X = INI_X 
+gTMP_EDGE_Y = INI_Y
+gTMP_EDGE_Z = INI_Z
 gGERBER_TMP_X = 0
 gGERBER_TMP_Y = 0
 gDCODE = [0]*100
 g54_FLAG = 0
 gFIG_NUM = 0
 gDRILL_TYPE = [0]*100
+gDRILL_D = 0
 gPOLYGONS = []
 gLINES = []
+gEDGES = []
 gDRILLS = []
 gGCODES = []
-
+gUNIT = 1
 
 #Set Class
 class POLYGON:
@@ -79,10 +92,10 @@ class LINE:
 		self.delete = delete
 
 class DRILL:
-	def __init__(self, x, y, r, delete):
+	def __init__(self, x, y, d, delete):
 		self.x = x
 		self.y = y
-		self.r = r
+		self.d = d
 		self.delete = delete
 
 class D_DATA:
@@ -103,22 +116,243 @@ class GCODE:
 
 #functions
 def main():
-	in_file="test_pcb.gtl"
-	drill_file="test_drill.drl"
-	drill_sw = 0	#for check
+	#in_file="colpitts1-Front0.gtl" #with filling zone
+	in_file="colpitts1-Front_1.gtl" #1lines and 1 rect
+	#in_file="colpitts1-Front_2.gtl" #2 line and 1 rect
+	#in_file="colpitts1-Front_3.gtl" #3 lines and 2 rects
+	#in_file="colpitts1-Front_4.gtl"
+	#in_file="colpitts1-Front_5.gtl"
+	#in_file="colpitts1-Front_6.gtl"
+	#in_file="colpitts1-Front_7.gtl"	#for zone error
+	#in_file="colpitts1-Front_8.gtl"	#for zone error
+	#in_file="uav1_1-Front.gtl"
+	#in_file="avr_test1.gtl"
+	#drill_file="uav1_1.drl"
+	drill_file="avr_test1.drl"
+	edge_file = "avr_test1_edge.gbr"
+	#drill_sw = 0	#for check
 	out_file = "test_gcode.ngc"
 	out_drill_file = "test_drill.ngc"
-
+	out_edge_file = "test_edge.ngc"
 	#process start
+	set_unit()
 	gcode_init()
 	read_Gerber(in_file)
 	merge()
 	read_Drill_file(drill_file)
-	do_drill(drill_sw)
-	end(out_file,out_drill_file)
+	do_drill()
+	readEdgeFile(edge_file)
+	mergeEdge()
+	edge2gcode()
+	end(out_file,out_drill_file,out_edge_file)
+
+def set_unit():
+	global IN_INCH_FLAG, OUT_INCH_FLAG, gUNIT, INCH
+	if (IN_INCH_FLAG and not OUT_INCH_FLAG):
+		gUNIT = INCH
+	elif(not IN_INCH_FLAG and OUT_INCH_FLAG):
+		gUNIT = 1.0/INCH
+	else:
+		gUNIT = 1.0
+
+def read_config():
+	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, CONFIG_FILE
+	try:
+		f = open(CONFIG_FILE,'r')
+	except IOError, (errno, strerror):
+		error_dialog("Unable to open the file" + CONFIG_FILE + "\n",1)
+	else:
+		while 1:
+			config = f.readline()
+			if not config:
+				break
+			cfg = re.search("([A-Z\_]+)\s*\=\s*([\-\d\.]+)",config)
+			if (cfg):
+				if(cfg.group(1)=="INI_X"):
+					INI_X = float(cfg.group(2))
+				if(cfg.group(1)=="INI_Y"):
+					INI_Y = float(cfg.group(2))
+				if(cfg.group(1)=="INI_Z"):
+					INI_Z = float(cfg.group(2))
+				if(cfg.group(1)=="MOVE_HEIGHT"):
+					MOVE_HEIGHT = float(cfg.group(2))
+				if(cfg.group(1)=="OUT_INCH_FLAG"):
+					OUT_INCH_FLAG = int(cfg.group(2))
+				if(cfg.group(1)=="IN_INCH_FLAG"):
+					IN_INCH_FLAG = int(cfg.group(2))
+				if(cfg.group(1)=="MCODE_FLAG"):
+					MCODE_FLAG = int(cfg.group(2))
+				if(cfg.group(1)=="XY_SPEED"):
+					XY_SPEED = int(cfg.group(2))
+				if(cfg.group(1)=="Z_SPEED"):
+					Z_SPEED = int(cfg.group(2))
+				if(cfg.group(1)=="LEFT_X"):
+					LEFT_X = float(cfg.group(2))
+				if(cfg.group(1)=="LOWER_Y"):
+					LOWER_Y = float(cfg.group(2))
+				if(cfg.group(1)=="DRILL_SPEED"):
+					DRILL_SPEED = int(cfg.group(2))
+				if(cfg.group(1)=="DRILL_DEPTH"):
+					DRILL_DEPTH = float(cfg.group(2))
+				if(cfg.group(1)=="CUT_DEPTH"):
+					CUT_DEPTH = float(cfg.group(2))
+				if(cfg.group(1)=="TOOL_D"):
+					TOOL_D = float(cfg.group(2))
+				if(cfg.group(1)=="DRILL_D"):
+					DRILL_D = float(cfg.group(2))
+				if(cfg.group(1)=="CAD_UNIT"):
+					CAD_UNIT = float(cfg.group(2))
+
+		f.close()
+
+def readEdgeFile(edge_file):
+	global gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGE_DATA, gEDGES, CAD_UNIT, OUT_INCH_FLAG, IN_INCH_FLAG
+	try:
+		f = open(edge_file,'r')
+	except IOError, (errno, strerror):
+		error_dialog("Unable to open the file" + edge_file + "\n",1)
+	else:
+		pre_x = gTMP_EDGE_X
+		pre_y = gTMP_EDGE_Y
+		while 1:
+			edge = f.readline()
+			if not edge:
+				break
+			xx = re.search("X([\d\.\-]+)\D",edge)
+			yy = re.search("Y([\d\-]+)\D",edge)
+			dd = re.search("D([\d]+)\D",edge)
+			if (xx):
+				x = float(xx.group(1)) * CAD_UNIT
+				#if (x != gTMP_EDGE_X):
+					#gTMP_EDGE_X = x
+			if (yy):
+				y = float(yy.group(1)) * CAD_UNIT
+				#if (y != gTMP_Y):
+					#gTMP_EDGE_Y = y
+			if (dd):
+				if(dd.group(1) == "1" or dd.group(1) == "01"):
+					gEDGES.append(POLYGON(0, 0, 0, 0, [pre_x,pre_y,x,y], 0))
+					#gEDGES.append(LINE(pre_x,pre_y,x,y,0,0))
+				elif(dd.group(1) == "2" or dd.group(1) == "02"):
+					pre_x = x
+					pre_y = y
+		f.close()
+def mergeEdge():
+	global gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGE_DATA, gEDGES, MERGINE
+	for edge1 in gEDGES:
+		if(edge1.delete):
+			continue
+		tmp_points1 = edge1.points
+		xi1 = edge1.points[0]
+		yi1 = edge1.points[1]
+		xi2 = edge1.points[len(edge1.points)-2]
+		yi2 = edge1.points[-1]
+		for edge2 in gEDGES:
+			if(edge2.delete or edge2 == edge1):
+				continue
+			tmp_points2 = edge2.points
+			xj1 = edge2.points[0]
+			yj1 = edge2.points[1]
+			xj2 = edge2.points[len(edge2.points)-2]
+			yj2 = edge2.points[-1]
+			if(xi1 == xj2 and yi1 == yj2):
+				#join
+				del tmp_points1[0:2]
+				tmp_points1 = tmp_points2 + tmp_points1
+			elif(xi2 == xj1 and yi2 == yj1):
+				#join
+				del tmp_points2[0:2]
+				tmp_points1 = tmp_points1 + tmp_points2
+			elif(xi1 == xj1 and yi1 == yj1):
+				#join
+				tmp_points2 = points_revers(tmp_points2)
+				del tmp_points1[0:2]
+				tmp_points1 = tmp_points2 + tmp_points1
+			elif(xi2 == xj2 and yi2 == yj2):
+				#join
+				tmp_points2 = points_revers(tmp_points2)
+				del tmp_points2[0:2]
+				tmp_points1 = tmp_points1 + tmp_points2
+
+			edge2.delete = 1
+			edge1.points=tmp_points1
+def edge2gcode():
+	global gEDGE_DATA, gXSHIFT, gYSHIFT, gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGES, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
+	out_data = "G01"
+	gcode_tmp_flag = 0
+	z_step_n = int(EDGE_DEPTH/Z_STEP) + 1
+	z_step = EDGE_DEPTH/z_step_n
+	j = 1
+	while j <= z_step_n:
+		z_depth = j*z_step
+		for edge in gEDGES:
+			points = edge.points
+			if(len(points) % 2):
+				error_dialog("Error:Number of points is illegal ",0)
+				#print "Number of points is illegal "
+			#print "x=" + str(gTMP_EDGE_X) + ", y=" + str(gTMP_EDGE_Y)
+			#print "x=" + str(float(points[0])+float(gXSHIFT)) + ", y=" + str(float(points[1])+float(gYSHIFT))
+			#move to Start position
+			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
+			#move to cuting heght
+			if(z_depth != gTMP_EDGE_Z):
+				gTMP_EDGE_Z=z_depth
+				gEDGE_DATA += "G01Z" + str(z_depth) + "F" + str(EDGE_Z_SPEED) + "\n"
+			i = 0
+			while i< len(points):
+				px=float(points[i])+gXSHIFT
+				py=float(points[i+1])+gYSHIFT
+				if (px != gTMP_EDGE_X):
+					gTMP_EDGE_X=px
+					out_data +="X" + str(px)
+					gcode_tmp_flag = 1
+				if(py != gTMP_EDGE_Y):
+					gTMP_EDGE_Y=py
+					out_data +="Y" + str(py)
+					gcode_tmp_flag=1
+				if(gcode_tmp_flag):
+					#Goto initial X-Y position
+					out_data +="F" + str(EDGE_SPEED)
+					gEDGE_DATA += out_data + "\n"
+					out_data ="G01"
+				gcode_tmp_flag=0
+				i += 2
+		j += 1
+def move_edge(x,y):
+	global MOVE_HEIGHT, gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z
+	xy_data = "G00"
+	out_data = ""
+	#print out_data
+	gcode_tmp_flag = 0
+	if(x != gTMP_EDGE_X):
+		gTMP_EDGE_X = x
+		xy_data += "X" + str(x)
+		gcode_tmp_flag=1
+	if(y != gTMP_EDGE_Y):
+		gTMP_EDGE_Y = y
+		xy_data += "Y" + str(y)
+		gcode_tmp_flag = 1
+	if(MOVE_HEIGHT!=gTMP_EDGE_Z):
+		gTMP_EDGE_Z = MOVE_HEIGHT
+		#Goto moving Z position
+		out_data = "G00Z" + str(MOVE_HEIGHT) + "\n"
+	if(gcode_tmp_flag):
+		#Goto initial X-Y position
+		return out_data + xy_data + "\n"
+	else:
+		return
+
+def points_revers(points):
+	return_points = []
+	i = len(points)-1
+	while i>0:
+		return_points = return_points + [points[i-1],points[i]]
+		i -=2	
+
+	return return_points
 
 def gcode_init():
-	global gGCODE_DATA, INI_X, INI_Y, INI_Z, OUT_INCH_FLAG, MCODE_FLAG, gDRILL_DATA
+	global gGCODE_DATA, INI_X, INI_Y, INI_Z, OUT_INCH_FLAG, MCODE_FLAG, gDRILL_DATA, gEDGE_DATA
 	gGCODE_DATA += "(Generated by " + sys.argv[0] +" )\n"
 	gGCODE_DATA += "( " + get_date() +" )\n"
 	gGCODE_DATA += "(Initialize)\n"
@@ -134,7 +368,7 @@ def gcode_init():
 		gGCODE_DATA += "M08\n"
 
 	gDRILL_DATA = gGCODE_DATA
-	
+	gEDGE_DATA = gGCODE_DATA
 
 def get_date():
 	d = datetime.datetime.today()
@@ -158,7 +392,8 @@ def read_Gerber(filename):
 			#do nothing
 		if (find(gerber, "G") != -1):
 			parse_g(gerber)
-		if (find(gerber, "X") != -1 or find(gerber, "Y") != -1):
+		#if (find(gerber, "X") != -1 or find(gerber, "Y") != -1):
+		if (find(gerber, "X") == 0):
 			parse_xy(gerber)
 	f.close()
 	check_duplication()
@@ -216,17 +451,9 @@ def parse_xy(gerber):
 		parse_data(x,y,d)
 
 def parse_data(x,y,d):
-	global gDCODE, gFIG_NUM,INCH, TOOL_D, CAD_UNIT, gGERBER_TMP_X, gGERBER_TMP_Y, gGCODES
-
-	if (IN_INCH_FLAG and not OUT_INCH_FLAG):
-		unit = INCH
-	elif(not IN_INCH_FLAG and OUT_INCH_FLAG):
-		unit = 1.0/INCH
-	else:
-		unit = 1
-	#print "unit=" + str(unit)
-	mod1 = float(gDCODE[int(gFIG_NUM)].mod1) * unit + float(TOOL_D)
-	mod2 = float(gDCODE[int(gFIG_NUM)].mod2) * unit + float(TOOL_D)
+	global gDCODE, gFIG_NUM,INCH, TOOL_D, CAD_UNIT, gGERBER_TMP_X, gGERBER_TMP_Y, gGCODES, gUNIT
+	mod1 = float(gDCODE[int(gFIG_NUM)].mod1) * gUNIT + float(TOOL_D)
+	mod2 = float(gDCODE[int(gFIG_NUM)].mod2) * gUNIT + float(TOOL_D)
 	x = float(x) * CAD_UNIT
 	y = float(y) * CAD_UNIT
 	if(d == "03" or d == "3"):
@@ -328,6 +555,30 @@ def check_duplication():
 			j += 1
 		i +=1
 
+def check_duplication_old():
+	global gGCODES
+	i = 0
+	while i< len(gGCODES)-1:
+		xi1=gGCODES[i].x1
+		yi1=gGCODES[i].y1
+		xi2=gGCODES[i].x2
+		yi2=gGCODES[i].y2
+		ti=gGCODES[i].gtype
+		j = i + 1
+		while j< len(gGCODES):
+			xj1=gGCODES[j].x1
+			yj1=gGCODES[j].y1
+			xj2=gGCODES[j].x2
+			yj2=gGCODES[j].y2
+			tj=gGCODES[j].gtype
+			if((xi1 == xj1 and yi1 == yj1 and xi2 == xj2 and yi2 == yj2) or (xi1 == xj2 and yi1 == yj2 and xi2 == xj1 and yi2 == yj1)):
+				#same line
+				if(ti == tj):
+					#same line, same type
+					gGCODES[j].gtype=5
+			j += 1
+		i +=1
+
 def gcode2polygon():
 	global gGCODES
 	for gcode in gGCODES:
@@ -396,7 +647,7 @@ def circle_points(cx,cy,r,points_num):
 	return points
 
 def gcode_end():
-	global gGCODE_DATA, MOVE_HEIGHT, INI_X, INI_Y, INI_Z, gDRILL_DATA
+	global gGCODE_DATA, MOVE_HEIGHT, INI_X, INI_Y, INI_Z, gDRILL_DATA, gEDGE_DATA
 	end_data = ""
 	end_data += "\n(Goto to Initial position)\n"
 	#Goto initial Z position
@@ -414,10 +665,11 @@ def gcode_end():
 	end_data += "%\n"
 	gGCODE_DATA += end_data
 	gDRILL_DATA += end_data
+	gEDGE_DATA += end_data
 
-def end(out_file_name,out_drill_file):
-	global gGCODE_DATA, CUT_DEPTH, XY_SPEED, Z_SPEED, gDRILL_DATA
-	calc_shift()
+def end(out_file_name,out_drill_file,out_edge_file):
+	global gGCODE_DATA, CUT_DEPTH, XY_SPEED, Z_SPEED, gDRILL_DATA, gEDGE_DATA
+	#calc_shift()
 	polygon2gcode(CUT_DEPTH,XY_SPEED, Z_SPEED)
 	gcode_end()
 	#File open
@@ -426,6 +678,9 @@ def end(out_file_name,out_drill_file):
 	out.close()
 	out = open(out_drill_file, 'w')
 	out.write(gDRILL_DATA)
+	out.close()
+	out = open(out_edge_file, 'w')
+	out.write(gEDGE_DATA)
 	out.close()
 
 def polygon2gcode(height,xy_speed,z_speed):
@@ -650,8 +905,6 @@ def CrossAndIn(line_id,spoints):
 	yb = gLINES[line_id].y2
 	if(gLINES[line_id].inside):
 		return
-
-
 	cross_count1 = 0
 	cross_count2 = 0
 	cross_points = []
@@ -722,13 +975,13 @@ def CrossAndIn(line_id,spoints):
 			if(flagX1 == flagX2):
 				if(flagX1):
 					#Cross
-					if(flagY1):#上から下にレイを横切るときには、交差回数を１引く、下から上は１足す。
+					if(flagY1):#
 						cross_count2 -= 1
 					else:
 						cross_count2 += 1
-			elif(yp2 != yp1):#交差するかどうか、対象点と同じ高さで、対象点の右で交差するか、左で交差するかを求める。
-				if(xb <= (xp1+(xp2-xp1)*(yb-yp1)/(yp2-yp1))):#線分は、対象点と同じ高さで、対象点の右で交差する。⇒線分はレイを横切る
-					if(flagY1):#上から下にレイを横切るときには、交差回数を１引く、下から上は１足す。
+			elif(yp2 != yp1):#
+				if(xb <= (xp1+(xp2-xp1)*(yb-yp1)/(yp2-yp1))):#
+					if(flagY1):#
 						cross_count2 -= 1
 					else:
 						cross_count2 += 1
@@ -736,12 +989,12 @@ def CrossAndIn(line_id,spoints):
 		si += 2
 	#end while
 
-	if(cross_count1):#クロスカウントがゼロのとき外、ゼロ以外のとき内。
+	if(cross_count1):#
 		in_flag1 = 1
 	else:
 		in_flag1 = 0
 
-	if(cross_count2):#クロスカウントがゼロのとき外、ゼロ以外のとき内。
+	if(cross_count2):#
 		in_flag2 = 1
 	else:
 		in_flag2 = 0
@@ -867,7 +1120,7 @@ def find_cross_point(x1,y1,x2,y2,xa,ya,xb,yb):
 
 #Drill 
 def read_Drill_file(drill_file):
-	global DRILL_D, gDRILL_TYPE
+	global gDRILL_D, gDRILL_TYPE, gUNIT
 	f = open(drill_file,'r')
 	print "Read and Parse Drill data"
 	while 1:
@@ -875,55 +1128,54 @@ def read_Drill_file(drill_file):
 		if not drill:
 			break
 		drill_data = re.search("T([\d]+)C([\d\.]+)",drill)
-		drill_num = re.search("T([\d]+)",drill)
+		drill_num = re.search("T([\d]+)\s",drill)
 		if(drill_data):
 			gDRILL_TYPE[int(drill_data.group(1))] = drill_data.group(2)
 		if(drill_num):
-			DRILL_D=gDRILL_TYPE[int(drill_num.group(1))]
+			gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * gUNIT
 		if (find(drill, "X") != -1 or find(drill, "Y") != -1):
 			parse_drill_xy(drill)
 	f.close()
 
 def parse_drill_xy(drill):
-	global gDRILLS, DRILL_D, gDRILL_TYPE, gXSHIFT, gYSHIFT, INCH, IN_INCH_FLAG, OUT_INCH_FLAG
+	global gDRILLS,gDRILL_D, gXSHIFT, gYSHIFT, INCH, IN_INCH_FLAG, OUT_INCH_FLAG, gUNIT
 	calc_shift()
-	if (IN_INCH_FLAG and not OUT_INCH_FLAG):
-		unit = INCH
-	elif(not IN_INCH_FLAG and OUT_INCH_FLAG):
-		unit = 1.0/INCH
-	else:
-		unit = 1.0
-	#print "unit=" + str(unit)
-	#print "x_shift=" + str(gXSHIFT) + "y_shift=" + str(gYSHIFT)
 	xx = re.search("X([\d\.-]+)\D",drill)
 	yy = re.search("Y([\d\.-]+)\D",drill)
 	if(xx):
-		x=float(xx.group(1)) * unit + gXSHIFT
+		x=float(xx.group(1)) * gUNIT + gXSHIFT
 	if(yy):
-		y=float(yy.group(1)) * unit + gYSHIFT
-	gDRILLS.append(DRILL(x,y,DRILL_D,0))
+		y=float(yy.group(1)) * gUNIT + gYSHIFT
+	gDRILLS.append(DRILL(x,y,gDRILL_D,0))
 
-def do_drill(drill_sw):
-	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z
+def do_drill():
+	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D
 	drill_data = ""
-	if(drill_sw):
+	drill_mergin = 1
+	if(MERGE_DRILL_DATA):
 		gTMP_DRILL_X = gTMP_X
 		gTMP_DRILL_Y = gTMP_Y
 		gTMP_DRILL_Z = gTMP_Z
 	for drill in gDRILLS:
+		#print "drill.d=" + str(drill.d) + ", DRILL_D=" + str(DRILL_D)
 		#move to hole position
-		drill_data += move_drill(drill.x,drill.y)
-		#Drill
-		if(DRILL_SPEED):
-			drill_data += "G01Z" + str(DRILL_DEPTH,) + "F" + str(DRILL_SPEED) + "\n"
+		if(drill.d > DRILL_D + drill_mergin):
+			cir_r = drill.d/2 - DRILL_D/2
+			#drill_data += move_drill(drill.x-cir_r,drill.y)
+			drill_data += drill_hole(drill.x,drill.y,cir_r)
 		else:
-			drill_data += "G01Z" + str(DRILL_DEPTH,) + "\n"
+			drill_data += move_drill(drill.x,drill.y)
+			#Drill
+			if(DRILL_SPEED):
+				drill_data += "G01Z" + str(DRILL_DEPTH,) + "F" + str(DRILL_SPEED) + "\n"
+			else:
+				drill_data += "G01Z" + str(DRILL_DEPTH,) + "\n"
 
-		#Goto moving Z position
-		drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
+	#Goto moving Z position
+	drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
 
 	gDRILL_DATA += drill_data
-	if(drill_sw):
+	if(MERGE_DRILL_DATA):
 		gGCODE_DATA += drill_data
 		gTMP_X = gTMP_DRILL_X 
 		gTMP_Y = gTMP_DRILL_Y
@@ -931,28 +1183,58 @@ def do_drill(drill_sw):
 
 def move_drill(x,y):
 	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z
-	out_data = "G00"
+	xy_data = "G00"
+	out_data = ""
 	#print out_data
 	gcode_tmp_flag = 0
 	if(x != gTMP_DRILL_X):
 		gTMP_DRILL_X = x
-		out_data += "X" + str(x)
+		xy_data += "X" + str(x)
 		gcode_tmp_flag=1
-	if(y != gTMP_DRILL_X):
-		gTMP_DRILL_X = y
-		out_data +="Y" + str(y)
+	if(y != gTMP_DRILL_Y):
+		gTMP_DRILL_Y = y
+		xy_data += "Y" + str(y)
 		gcode_tmp_flag = 1
 	if(MOVE_HEIGHT!=gTMP_DRILL_Z):
 		gTMP_DRILL_Z = MOVE_HEIGHT
 		#Goto moving Z position
-		#out_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
-		return "G00Z" + str(MOVE_HEIGHT) + "\n"
+		out_data = "G00Z" + str(MOVE_HEIGHT) + "\n"
 	if(gcode_tmp_flag):
 		#Goto initial X-Y position
-		return out_data + "\n"
+		return out_data + xy_data + "\n"
 	else:
-		return
+		return ""
 
+def drill_hole(cx,cy,r):
+	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
+	out_data = ""
+	gcode_tmp_flag = 0
+	z_step_n = int(DRILL_DEPTH/Z_STEP) + 1
+	z_step = DRILL_DEPTH/z_step_n
+	#print "r=" + str(r)
+	if(MOVE_HEIGHT != gTMP_DRILL_Z):
+		gTMP_DRILL_Z = MOVE_HEIGHT
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "\n"
+	out_data += "G00X" + str(cx-r) + "Y" + str(cy) + "\n"
+	out_data += "G17\n"	#Set XY plane
+	i = 1
+	while i <= z_step_n:
+		gTMP_DRILL_Z = i*z_step
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "F" + str(DRILL_SPEED) + "\n"
+		#Circle
+		out_data += "G02X" + str(cx+r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
+		out_data += "G02X" + str(cx-r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
+		i += 1
+
+	gTMP_DRILL_X = cx+r
+	gTMP_DRILL_Y = cy
+	return out_data
+
+def error_dialog(error_mgs,sw):
+	print error_mgs
+	if(sw):
+		#raw_input("\n\nPress the enter key to exit.")
+		sys.exit()
 
 if __name__ == "__main__":
     main()
