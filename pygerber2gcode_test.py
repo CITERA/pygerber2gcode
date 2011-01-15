@@ -116,21 +116,9 @@ class GCODE:
 
 #functions
 def main():
-	#in_file="colpitts1-Front0.gtl" #with filling zone
-	in_file="colpitts1-Front_1.gtl" #1lines and 1 rect
-	#in_file="colpitts1-Front_2.gtl" #2 line and 1 rect
-	#in_file="colpitts1-Front_3.gtl" #3 lines and 2 rects
-	#in_file="colpitts1-Front_4.gtl"
-	#in_file="colpitts1-Front_5.gtl"
-	#in_file="colpitts1-Front_6.gtl"
-	#in_file="colpitts1-Front_7.gtl"	#for zone error
-	#in_file="colpitts1-Front_8.gtl"	#for zone error
-	#in_file="uav1_1-Front.gtl"
-	#in_file="avr_test1.gtl"
-	#drill_file="uav1_1.drl"
-	drill_file="avr_test1.drl"
-	edge_file = "avr_test1_edge.gbr"
-	#drill_sw = 0	#for check
+	in_file="test_pcb.gtl"
+	drill_file="test_drill.drl"
+	edge_file = "test_edge.gbr"
 	out_file = "test_gcode.ngc"
 	out_drill_file = "test_drill.ngc"
 	out_edge_file = "test_edge.ngc"
