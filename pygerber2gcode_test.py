@@ -1151,7 +1151,7 @@ def parse_drill_xy(drill):
 def do_drill():
 	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D
 	drill_data = ""
-	drill_mergin = 1
+	drill_mergin = 0.02
 	if(MERGE_DRILL_DATA):
 		gTMP_DRILL_X = gTMP_X
 		gTMP_DRILL_Y = gTMP_Y
@@ -1167,13 +1167,12 @@ def do_drill():
 			drill_data += move_drill(drill.x,drill.y)
 			#Drill
 			if(DRILL_SPEED):
-				drill_data += "G01Z" + str(DRILL_DEPTH,) + "F" + str(DRILL_SPEED) + "\n"
+				drill_data += "G01Z" + str(DRILL_DEPTH) + "F" + str(DRILL_SPEED) + "\n"
 			else:
-				drill_data += "G01Z" + str(DRILL_DEPTH,) + "\n"
-
-	#Goto moving Z position
-	drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
-
+				drill_data += "G01Z" + str(DRILL_DEPTH) + "\n"
+		#Goto moving Z position
+		drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
+		gTMP_DRILL_Z = MOVE_HEIGHT
 	gDRILL_DATA += drill_data
 	if(MERGE_DRILL_DATA):
 		gGCODE_DATA += drill_data
@@ -1204,8 +1203,50 @@ def move_drill(x,y):
 		return out_data + xy_data + "\n"
 	else:
 		return ""
-
 def drill_hole(cx,cy,r):
+	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
+	out_data = ""
+	gcode_tmp_flag = 0
+	z_step_n = int(DRILL_DEPTH/Z_STEP) + 1
+	z_step = DRILL_DEPTH/z_step_n
+	#print "r=" + str(r)
+	if(MOVE_HEIGHT != gTMP_DRILL_Z):
+		gTMP_DRILL_Z = MOVE_HEIGHT
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "\n"
+	out_data += "G00X" + str(cx+r) + "Y" + str(cy) + "\n"
+	out_data += "G17\n"	#Set XY plane
+	points = circle_points(cx,cy,r,100)
+	i = 1
+	while i <= z_step_n:
+		gTMP_DRILL_Z = i*z_step
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "F" + str(DRILL_SPEED) + "\n"
+		j = 0
+		cricle_data = "G01"
+		while j< len(points):
+			px=points[j]
+			py=points[j+1]
+			if (px != gTMP_DRILL_X):
+				gTMP_DRILL_X=px
+				cricle_data +="X" + str(px)
+				gcode_tmp_flag = 1
+			if(py != gTMP_DRILL_Y):
+				gTMP_DRILL_Y=py
+				cricle_data +="Y" + str(py)
+				gcode_tmp_flag=1
+			if(gcode_tmp_flag):
+				#Goto initial X-Y position
+				cricle_data +="F" + str(XY_SPEED)
+				out_data += cricle_data + "\n"
+				cricle_data ="G01"
+			gcode_tmp_flag=0
+			j += 2
+		i += 1
+
+	gTMP_DRILL_X = cx+r
+	gTMP_DRILL_Y = cy
+	return out_data
+
+def drill_hole_test(cx,cy,r):
 	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
 	out_data = ""
 	gcode_tmp_flag = 0
@@ -1224,6 +1265,8 @@ def drill_hole(cx,cy,r):
 		#Circle
 		out_data += "G02X" + str(cx+r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
 		out_data += "G02X" + str(cx-r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
+		#out_data += "G03X" + str(cx+r) + "Y" + str(cy) + "I" + str(cx) + "J" + str(cy) + "F" + str(XY_SPEED) + "\n"
+		#out_data += "G03X" + str(cx-r) + "Y" + str(cy) + "I" + str(cx) + "J" + str(cy) + "F" + str(XY_SPEED) + "\n"
 		i += 1
 
 	gTMP_DRILL_X = cx+r
@@ -1238,6 +1281,3 @@ def error_dialog(error_mgs,sw):
 
 if __name__ == "__main__":
     main()
-
-
-
