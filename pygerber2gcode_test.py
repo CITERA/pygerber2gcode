@@ -116,9 +116,21 @@ class GCODE:
 
 #functions
 def main():
-	in_file="test_pcb.gtl"
-	drill_file="test_drill.drl"
-	edge_file = "test_edge.gbr"
+	#in_file="colpitts1-Front0.gtl" #with filling zone
+	#in_file="colpitts1-Front_1.gtl" #1lines and 1 rect
+	#in_file="colpitts1-Front_2.gtl" #2 line and 1 rect
+	#in_file="colpitts1-Front_3.gtl" #3 lines and 2 rects
+	#in_file="colpitts1-Front_4.gtl"
+	#in_file="colpitts1-Front_5.gtl"
+	#in_file="colpitts1-Front_6.gtl"
+	#in_file="colpitts1-Front_7.gtl"	#for zone error
+	#in_file="colpitts1-Front_8.gtl"	#for zone error
+	#in_file="uav1_1-Front.gtl"
+	in_file="avr_test1.gtl"
+	#drill_file="uav1_1.drl"
+	drill_file="avr_test1.drl"
+	edge_file = "avr_test1_edge.gbr"
+	#drill_sw = 0	#for check
 	out_file = "test_gcode.ngc"
 	out_drill_file = "test_drill.ngc"
 	out_edge_file = "test_edge.ngc"
@@ -1126,33 +1138,35 @@ def read_Drill_file(drill_file):
 	f.close()
 
 def parse_drill_xy(drill):
-	global gDRILLS,gDRILL_D, gXSHIFT, gYSHIFT, INCH, IN_INCH_FLAG, OUT_INCH_FLAG, gUNIT
-	calc_shift()
+	global gDRILLS,gDRILL_D, gUNIT
 	xx = re.search("X([\d\.-]+)\D",drill)
 	yy = re.search("Y([\d\.-]+)\D",drill)
 	if(xx):
-		x=float(xx.group(1)) * gUNIT + gXSHIFT
+		x=float(xx.group(1)) * gUNIT
 	if(yy):
-		y=float(yy.group(1)) * gUNIT + gYSHIFT
+		y=float(yy.group(1)) * gUNIT
 	gDRILLS.append(DRILL(x,y,gDRILL_D,0))
 
 def do_drill():
-	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D
+	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D, gXSHIFT, gYSHIFT
 	drill_data = ""
 	drill_mergin = 0.02
+	calc_shift()
 	if(MERGE_DRILL_DATA):
 		gTMP_DRILL_X = gTMP_X
 		gTMP_DRILL_Y = gTMP_Y
 		gTMP_DRILL_Z = gTMP_Z
 	for drill in gDRILLS:
+		x = drill.x + gXSHIFT
+		y = drill.y + gYSHIFT
 		#print "drill.d=" + str(drill.d) + ", DRILL_D=" + str(DRILL_D)
 		#move to hole position
 		if(drill.d > DRILL_D + drill_mergin):
 			cir_r = drill.d/2 - DRILL_D/2
 			#drill_data += move_drill(drill.x-cir_r,drill.y)
-			drill_data += drill_hole(drill.x,drill.y,cir_r)
+			drill_data += drill_hole(x,y,cir_r)
 		else:
-			drill_data += move_drill(drill.x,drill.y)
+			drill_data += move_drill(x,y)
 			#Drill
 			if(DRILL_SPEED):
 				drill_data += "G01Z" + str(DRILL_DEPTH) + "F" + str(DRILL_SPEED) + "\n"
