@@ -167,9 +167,7 @@ class MainFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnConvSet, menuConv)
 		self.Bind(wx.EVT_MENU, self.OnSetup, menuMachine)
 
-
 		panel = wx.Panel(self, -1)
-		#panel.SetBackgroundColour('WHITE')
 		vbox = wx.BoxSizer(wx.VERTICAL)
 
 		#Display set
@@ -199,21 +197,13 @@ class MainFrame(wx.Frame):
 		#Draw data
 		panel2 = wx.Panel(panel, -1)
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-		#vbox1 = wx.BoxSizer(wx.VERTICAL)
 
 		paint = Paint(panel2)
-		#paint = Paint(hbox1)
-		#sw = wx.ScrolledWindow(panel2)
-		#paint = Paint(sw)
-		#sw.SetScrollbars(20,20,55,40)
 
-		#hbox1.Add(sw, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
+
 		hbox1.Add(paint, 1, wx.EXPAND | wx.ALL, 2)
-		#vbox1.Add(paint, 0, wx.EXPAND | wx.ALL, 15)
 		panel2.SetSizer(hbox1)
-		#panel2.SetSizer(vbox1)
 		vbox.Add(panel2, 1,  wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
-		#vbox.Add((-1, 25))
 
 		hbox5 = wx.BoxSizer(wx.HORIZONTAL)
 		btn0 = wx.Button(panel, -1, 'Generate contour', size=(150, 30))
@@ -224,17 +214,7 @@ class MainFrame(wx.Frame):
 		hbox5.Add(btn2, 0, wx.LEFT | wx.BOTTOM , 5)
 		vbox.Add(hbox5, 0, wx.ALIGN_RIGHT | wx.RIGHT, 10)
 
-		#vbox1 = wx.BoxSizer(wx.VERTICAL)
-		#self.progress1 = wx.StaticText(panel, -1, 'Progress')
-		#vbox1.Add(self.progress1, 0, wx.LEFT)
-		#self.gauge = wx.Gauge(panel, -1, 100, size=(500, 15))
-		#vbox1.Add(self.gauge, 0, wx.LEFT)
-		#vbox.Add(vbox1, 0, wx.ALIGN_LEFT | wx.LEFT, 10)
-
 		panel.SetSizer(vbox)
-		#status = self.CreateStatusBar()
-		#rect = status.GetFieldRect(1)
-		#self.gauge = wx.Gauge(status, -1, 100, wx.Point(rect.x + 2, rect.y + 2),wx.Size(rect.width - 4, rect.height - 4)) 
 		self.Centre()
 		self.Show(True)
 
@@ -288,8 +268,8 @@ class MainFrame(wx.Frame):
 		global gPOLYGONS, gDISP_CONTOUR
 		if(len(gPOLYGONS) > 0):
 			progress = wx.ProgressDialog("Progress",'Progress', maximum = 100, parent=self, style = wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+			progress.SetSize((300, 100))
 			progress.Update(5, 'Remove duplication pattern ...')
-			#self.gauge.SetValue(5)
 			check_duplication()
 			progress.Update(7, 'Convert gerber data to polygon data ...')
 			gerber2polygon()
@@ -329,31 +309,19 @@ class Paint(wx.ScrolledWindow):
 		#wx.Panel.__init__(self, parent)
 		wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
 		self.SetBackgroundColour('WHITE')
-		self.psize_x=200
-		self.psize_y=100
-		#print self.GetScaleX()
-		#print self.GetSize()
-		#print self.GetScrollPageSize(wx.VERTICAL)
-		#print self.GetScrollPageSize(wx.HORIZONTAL)
-		#print self.GetViewStart()
-		#print self.GetVirtualSize()
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 
-		#panel.Bind(wx.EVT_SCROLLWIN, self.OnScroll)
-		self.SetScrollbars(10, 10, 100,100);
-		#self.Bind(wx.EVT_SCROLLWIN, self.OnScroll)
+		self.SetScrollbars(10, 10, 100,100)
 		self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
 
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 		self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
-		self.Bind(wx.EVT_LIST_BEGIN_DRAG, self.OnDrag)
+		#self.Bind(wx.EVT_LIST_BEGIN_DRAG, self.OnDrag)
 		self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseLeftDown)
 		self.Bind(wx.EVT_RIGHT_DOWN, self.OnMouseRightDown)
-		#self.Bind(wx.EVT_LEFT_DCLICK , self.OnMouseLeftDClick)
-		#self.Bind(wx.EVT_RIGHT_DCLICK , self.OnMouseRightDClick)
 		self.Bind(wx.EVT_LEFT_UP, self.OnMouseLeftUp)
 		self.Bind(wx.EVT_RIGHT_UP, self.OnMouseRightUp)
-		self.Bind(wx.EVT_MOTION , self.OnMouseMove) 
+		#self.Bind(wx.EVT_MOTION , self.OnMouseMove) 
 
 
 
@@ -362,20 +330,18 @@ class Paint(wx.ScrolledWindow):
 
 	def OnKeyDown(self, event):
 		keycode = event.GetKeyCode()
-		#print keycode
+		print keycode
 		#if keycode == wx.WXK_UP:
 
 	#gerber
 	def OnPaint(self, e):
 		global gPOLYGONS, gPATTERNS, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR, gEDGES, gDRILLS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR, CONTOUR_COLOR, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, CENTER_X, CENTER_Y
 		dc = wx.PaintDC(self)
-		#print self.GetViewStart()
-		#print self.GetVirtualSize()
-		#print self.GetSize()
 		paint_size = self.GetSize()
 		CENTER_X =int(paint_size.x/2)+1
 		CENTER_Y =int(paint_size.y/2)+1
-		veiw_start = self.GetViewStart()
+		#veiw_start = self.GetViewStart()
+		veiw_start = self.CalcUnscrolledPosition(0,0)
 		#print "pos=" + str(veiw_start)
 		#print 'Mag' + str(gMAG) + ", x shift=" + str(gDRAW_XSHIFT-veiw_start[0]) + ", y shift=" + str(gDRAW_YSHIFT-veiw_start[1])
 		if(len(gPATTERNS) > 0 and gDISP_GERBER):
@@ -438,17 +404,17 @@ class Paint(wx.ScrolledWindow):
 		#print 'OnMouseWheel' + str(pos) + ", w=" + str(gMAG)
 		#self.OnPaint(event)
 		self.Refresh(1)
-	def OnDrag(self, event):
-		pos = event.GetPosition()
-		#print "Drag: pos=" + str(pos)
-		#self.Refresh(1)
-	def OnScroll(self, event):
-		global gDRAW_XSHIFT, gDRAW_YSHIFT
-		pos = self.GetViewStart()
-		#print "pos=" + str(pos)
-		gDRAW_XSHIFT -= pos[0]
-		gDRAW_YSHIFT -= pos[1]
-		#print "X shif=" + str(gDRAW_XSHIFT) + ", Y shift=" + str(gDRAW_YSHIFT)
+	#def OnDrag(self, event):
+	#	pos = event.GetPosition()
+	#	print "Drag: pos=" + str(pos)
+	#	#self.Refresh(1)
+	#def OnScroll(self, event):
+	#	global gDRAW_XSHIFT, gDRAW_YSHIFT
+	#	pos = self.GetViewStart()
+	#	print "pos=" + str(pos)
+	#	gDRAW_XSHIFT -= pos[0]
+	#	gDRAW_YSHIFT -= pos[1]
+	#	print "X shif=" + str(gDRAW_XSHIFT) + ", Y shift=" + str(gDRAW_YSHIFT)
 		#self.Refresh(1)
 	def OnMouseLeftDown(self, event):
 		global gMouseLeftDown
@@ -479,6 +445,7 @@ class Paint(wx.ScrolledWindow):
 				gMAG = float(size.x)/float(dx/pre_mag)
 			elif(dx < 0):
 				gMAG = -float(pre_mag)/float(dx)
+			#print "gmag=" + str(gMAG)
 			if(dy > 0):
 				if(gMAG > float(size.y)/float(dy/pre_mag)):
 					gMAG = float(size.y)/float(dy/pre_mag)
@@ -495,6 +462,7 @@ class Paint(wx.ScrolledWindow):
 				gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(cy)-gDRAW_YSHIFT))/pre_mag
 
 			self.Refresh(1)
+			#print "Left UP: pos=" + str(pos) + ", dx=" + str(dx) + ", dy=" + str(dy) + ", cx=" + str(cx) + ", cy=" + str(cy) + ", mag=" + str(gMAG)
 	def OnMouseRightUp(self, event):
 		global gMouseRightDown, gMAG
 		pos = event.GetPosition()
@@ -504,12 +472,12 @@ class Paint(wx.ScrolledWindow):
 			dy = pos.y - gMouseRightDown[2]
 			dist = sqrt(dx*dx + dy*dy)/gMAG
 			print dist
-	def OnMouseLeftDClick(self, event):
-		pos = event.GetPosition()
-	def OnMouseRightDClick(self, event):
-		pos = event.GetPosition()
-	def OnMouseMove(self, event):
-		pos = event.GetPosition()
+	#def OnMouseLeftDClick(self, event):
+	#	pos = event.GetPosition()
+	#def OnMouseRightDClick(self, event):
+	#	pos = event.GetPosition()
+	#def OnMouseMove(self, event):
+	#	pos = event.GetPosition()
 
 class OpenFiles(wx.Dialog):
 	def __init__(self, parent, id, title):
@@ -591,8 +559,6 @@ class OpenFiles(wx.Dialog):
 		rb2 = wx.RadioBox(panel, label="unit of Output file", choices=radioList, majorDimension=3, style=wx.RA_SPECIFY_COLS)
 		rb2.SetSelection(int(OUT_INCH_FLAG))
 		sizer.Add(rb2, (9, 0), (1, 5), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
-		#button3 = wx.Button(panel, -1, 'Help', size=(-1, 30))
-		#sizer.Add(button3, (7, 0), (1, 1),  wx.LEFT, 10)
 
 		text5 = wx.StaticText(panel, -1, 'Cutting depth')
 		sizer.Add(text5, (10, 0), flag=wx.TOP | wx.LEFT, border=10)
@@ -630,9 +596,6 @@ class OpenFiles(wx.Dialog):
 		self.Bind(wx.EVT_BUTTON, self.OnClose, button6)	
 		self.Bind(wx.EVT_RADIOBOX, self.EvtRadioBox1, rb1)
 		self.Bind(wx.EVT_RADIOBOX, self.EvtRadioBox2, rb2)
-
-		#self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
-		#self.Bind(wx.EVT_MENU, self.OnAbout, menuAbout)
 
 		self.Centre()
 		self.Show(True)
@@ -857,18 +820,6 @@ class MachineSetup(wx.Dialog):
 		self.zstep.SetValue(str(Z_STEP))
 		sizer.Add(self.zstep, (15, 1), (1, 3), wx.TOP | wx.EXPAND, 5)
 
-		#radioList = ['mm', 'inch']
-		#self.rb1 = wx.RadioBox(panel, label="unit of Input file", choices=radioList, majorDimension=3, style=wx.RA_SPECIFY_COLS)
-		#self.rb1.SetSelection(int(IN_INCH_FLAG))
-		#sizer.Add(self.rb1, (14, 0), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
-
-		#self.rb2 = wx.RadioBox(panel, label="unit of Output file", choices=radioList, majorDimension=3, style=wx.RA_SPECIFY_COLS)
-		#self.rb2.SetSelection(int(OUT_INCH_FLAG))
-		#sizer.Add(self.rb2, (14, 1), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
-
-		#self.cb1 = wx.CheckBox(panel, -1, 'Enable M code', (10, 10))
-		#self.cb1.SetValue(int(MCODE_FLAG))
-		#sizer.Add(self.cb1, (14, 2), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
 
 		button0 = wx.Button(panel, -1, 'Save to config file', size=(-1, 30))
 		sizer.Add(button0, (17, 0), (1, 1),  wx.LEFT, 10)
@@ -893,13 +844,8 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
-		#IN_INCH_FLAG = int(self.rb1.GetSelection())
-		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
-		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
-		#LEFT_X = float(self.leftx.GetValue())
-		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -910,8 +856,6 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
-		#CAD_UNIT = float(self.cadunit.GetValue())
-		#show_all_values()
 		self.Close(True)  # Close the frame.
 	def OnClose(self,e):
 		self.Close(True)  # Close the frame.
@@ -921,13 +865,8 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
-		#IN_INCH_FLAG = int(self.rb1.GetSelection())
-		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
-		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
-		#LEFT_X = float(self.leftx.GetValue())
-		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -938,7 +877,6 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
-		#CAD_UNIT = float(self.cadunit.GetValue())
 		save_config()
 		self.Close(True)  # Close the frame.
 class ConvSetup(wx.Dialog):
@@ -1412,12 +1350,11 @@ def edge2gcode():
 	while j <= z_step_n:
 		z_depth = j*z_step
 		for edge in gEDGES:
+			if(edge.delete):
+				continue
 			points = edge.points
 			if(len(points) % 2):
 				error_dialog("Error:Number of points is illegal ",0)
-				#print "Number of points is illegal "
-			#print "x=" + str(gTMP_EDGE_X) + ", y=" + str(gTMP_EDGE_Y)
-			#print "x=" + str(float(points[0])+float(gXSHIFT)) + ", y=" + str(float(points[1])+float(gYSHIFT))
 			#move to Start position
 			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
 			#move to cuting heght
@@ -1503,7 +1440,7 @@ def get_date():
 def read_Gerber(filename):
 	global IN_INCH_FLAG
 	f = open(filename,'r')
-	print "Parse Gerber data"
+	#print "Parse Gerber data"
 	while 1:
 		gerber = f.readline()
 		if not gerber:
@@ -1614,7 +1551,7 @@ def parse_data(x,y,d):
 
 def check_duplication():
 	global gGCODES
-	print "Check overlapping lines ..."
+	#print "Check overlapping lines ..."
 	i = 0
 	while i< len(gGCODES)-1:
 		if(gGCODES[i].gtype == 5):
@@ -1843,7 +1780,7 @@ def end(out_file_name,out_drill_file,out_edge_file):
 
 def polygon2gcode(height,xy_speed,z_speed):
 	global gPOLYGONS
-	print "Convert to G-code"
+	#print "Convert to G-code"
 	for poly in gPOLYGONS:
 		if (poly.delete):
 			continue
@@ -1956,7 +1893,7 @@ def polygon2line(points):
 def merge():
 	global gPOLYGONS, gLINES
 	gerber2polygon()
-	print "Start merge polygons"
+	#print "Start merge polygons"
 	for poly1 in gPOLYGONS:
 		out_points=[]
 		merged=0
@@ -1993,11 +1930,11 @@ def merge():
 		poly3.delete = 1
 
 	#line_merge()
-	print "End merge polygons"
+	#print "End merge polygons"
 
 def line_merge():
 	global gPOLYGONS, gLINES
-	print "   Start merge lines"
+	#print "   Start merge lines"
 	#tmp_points = []
 	margin = 0.0001
 	for line1 in gLINES:
@@ -2025,7 +1962,7 @@ def line_merge():
 
 def merge_polygons():
 	global gPOLYGONS
-	print "      Start merge lines 2"
+	#print "      Start merge lines 2"
 	#tmp_points1 = []
 	#tmp_points2 = []
 	margin = 0.00001
@@ -2280,7 +2217,7 @@ def find_cross_point(x1,y1,x2,y2,xa,ya,xb,yb):
 def read_Drill_file(drill_file):
 	global gDRILL_D, gDRILL_TYPE, gUNIT
 	f = open(drill_file,'r')
-	print "Read and Parse Drill data"
+	#print "Read and Parse Drill data"
 	while 1:
 		drill = f.readline()
 		if not drill:
