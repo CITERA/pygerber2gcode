@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # coding: UTF-8
-
+#2011.2.7
 import wx
 from string import *
 from math import *
@@ -63,6 +63,8 @@ DRILL_COLOR = 'BLUE'
 EDGE_COLOR = 'GREEN YELLOW'
 CONTOUR_COLOR = 'MAGENTA'
 
+DIST_COLOR = 'ORANGE'
+ZOOM_COLOR = 'VIOLET RED'
 #
 
 
@@ -117,10 +119,19 @@ gMAG_MIN = 0.1
 gMAG_MAX = 500.0
 gDRAW_XSHIFT = 0.0
 gDRAW_YSHIFT = 0.0
-gDISP_GERBER = 1
+gDISP_GERBER = 0
 gDISP_DRILL = 0
 gDISP_EDGE = 0
 gDISP_CONTOUR = 0
+gPAINTWINDOW_X = 300
+gPAINTWINDOW_Y = 300
+gPAINTWINDOW_X_MAX = 20000
+gPAINTWINDOW_Y_MAX = 20000
+gPAINTWINDOW_X_MIN = 100
+gPAINTWINDOW_Y_MIN = 100
+
+gSCROLL_DX = 10
+gSCROLL_DY = 10
 
 gCOLORS = [
 'AQUAMARINE','BLACK','BLUE','BLUE VIOLET','BROWN',
@@ -167,7 +178,9 @@ class MainFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnConvSet, menuConv)
 		self.Bind(wx.EVT_MENU, self.OnSetup, menuMachine)
 
+
 		panel = wx.Panel(self, -1)
+		#panel.SetBackgroundColour('WHITE')
 		vbox = wx.BoxSizer(wx.VERTICAL)
 
 		#Display set
@@ -199,8 +212,6 @@ class MainFrame(wx.Frame):
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 
 		paint = Paint(panel2)
-
-
 		hbox1.Add(paint, 1, wx.EXPAND | wx.ALL, 2)
 		panel2.SetSizer(hbox1)
 		vbox.Add(panel2, 1,  wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
@@ -233,7 +244,7 @@ class MainFrame(wx.Frame):
 		gDISP_GERBER = int(self.cb1.IsChecked())
 		self.Refresh(1)
 	def OnDrill(self,e):
-		global gDISP_DRILL, gDISP_EDGE
+		global gDISP_DRILL
 		gDISP_DRILL = int(self.cb2.IsChecked())
 		self.Refresh(1)
 	def OnEdge(self,e):
@@ -260,16 +271,27 @@ class MainFrame(wx.Frame):
 		setup.ShowModal()
 		setup.Destroy()
 	def OnOpen(self,e):
+		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
 		setup = OpenFiles(None, -1, 'Open Files')
 		setup.ShowModal()
 		setup.Destroy()
+		if(len(gPATTERNS) > 0):
+			gDISP_GERBER = 1
+			self.cb1.SetValue(gDISP_GERBER)
+		if(len(gDRAWDRILL) > 0):
+			gDISP_DRILL = 1
+			self.cb2.SetValue(gDISP_DRILL)
+		if(len(gDRAWEDGE) >0 ):
+			gDISP_EDGE = 1
+			self.cb3.SetValue(gDISP_EDGE)
 		self.Refresh(1)
 	def OnGenerate(self,e):
 		global gPOLYGONS, gDISP_CONTOUR
 		if(len(gPOLYGONS) > 0):
-			progress = wx.ProgressDialog("Progress",'Progress', maximum = 100, parent=self, style = wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+			progress = wx.ProgressDialog("Progress",'Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
 			progress.SetSize((300, 100))
 			progress.Update(5, 'Remove duplication pattern ...')
+			#self.gauge.SetValue(5)
 			check_duplication()
 			progress.Update(7, 'Convert gerber data to polygon data ...')
 			gerber2polygon()
@@ -280,7 +302,8 @@ class MainFrame(wx.Frame):
 			progress.Update(95, 'Re-Merge Contour line ...')
 			merge_polygons()
 			contour2draw()
-			gDISP_CONTOUR = 1	
+			gDISP_CONTOUR = 1
+			self.cb4.SetValue(gDISP_CONTOUR)
 			progress.Update(100, 'Finished ...')
 			progress.Destroy()
 			dlg = wx.MessageDialog(self, "Contour generation is finished", "Contour generation is finished" , wx.OK)
@@ -303,25 +326,26 @@ class MainFrame(wx.Frame):
 
 
 
-#class Paint(wx.Panel):
 class Paint(wx.ScrolledWindow):
 	def __init__(self, parent):
+		global gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY
 		#wx.Panel.__init__(self, parent)
 		wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
 		self.SetBackgroundColour('WHITE')
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 
-		self.SetScrollbars(10, 10, 100,100)
+		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(gPAINTWINDOW_X/gSCROLL_DX),int(gPAINTWINDOW_Y/gSCROLL_DY));
+
 		self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
 
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 		self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
-		#self.Bind(wx.EVT_LIST_BEGIN_DRAG, self.OnDrag)
+		self.Bind(wx.EVT_LIST_BEGIN_DRAG, self.OnDrag)
 		self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseLeftDown)
 		self.Bind(wx.EVT_RIGHT_DOWN, self.OnMouseRightDown)
 		self.Bind(wx.EVT_LEFT_UP, self.OnMouseLeftUp)
 		self.Bind(wx.EVT_RIGHT_UP, self.OnMouseRightUp)
-		#self.Bind(wx.EVT_MOTION , self.OnMouseMove) 
+		self.Bind(wx.EVT_MOTION , self.OnMouseMove) 
 
 
 
@@ -335,14 +359,13 @@ class Paint(wx.ScrolledWindow):
 
 	#gerber
 	def OnPaint(self, e):
-		global gPOLYGONS, gPATTERNS, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR, gEDGES, gDRILLS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR, CONTOUR_COLOR, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, CENTER_X, CENTER_Y
-		dc = wx.PaintDC(self)
+		global gPOLYGONS, gPATTERNS, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR, gEDGES, gDRILLS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR, CONTOUR_COLOR, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, CENTER_X, CENTER_Y, gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY, gPAINTWINDOW_X_MAX, gPAINTWINDOW_Y_MAX, gPAINTWINDOW_X_MIN, gPAINTWINDOW_Y_MIN 
+		self.dc = wx.PaintDC(self)
+
 		paint_size = self.GetSize()
 		CENTER_X =int(paint_size.x/2)+1
 		CENTER_Y =int(paint_size.y/2)+1
-		#veiw_start = self.GetViewStart()
 		veiw_start = self.CalcUnscrolledPosition(0,0)
-		#print "pos=" + str(veiw_start)
 		#print 'Mag' + str(gMAG) + ", x shift=" + str(gDRAW_XSHIFT-veiw_start[0]) + ", y shift=" + str(gDRAW_YSHIFT-veiw_start[1])
 		if(len(gPATTERNS) > 0 and gDISP_GERBER):
 			for polygon in gPATTERNS:
@@ -351,15 +374,15 @@ class Paint(wx.ScrolledWindow):
 					x = point[0] * gMAG + gDRAW_XSHIFT-veiw_start[0]
 					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
 					points.append([x,y])
-				dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
-				dc.DrawPolygon(points)
+				self.dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
+				self.dc.DrawPolygon(points)
 		if(len(gDRAWDRILL) > 0 and gDISP_DRILL):
 			for drill in gDRAWDRILL:
 				x = drill.x * gMAG + gDRAW_XSHIFT-veiw_start[0]
 				y = drill.y * gMAG + gDRAW_YSHIFT-veiw_start[1]
 				r = drill.d * gMAG/2
-				dc.SetPen(wx.Pen(DRILL_COLOR, 1, wx.DOT))
-				dc.DrawCircle(x, y, r)
+				self.dc.SetPen(wx.Pen(DRILL_COLOR, 1, wx.DOT))
+				self.dc.DrawCircle(x, y, r)
 		if(len(gDRAWEDGE) > 0 and gDISP_EDGE):
 			for edge in gDRAWEDGE:
 				points = []
@@ -367,8 +390,8 @@ class Paint(wx.ScrolledWindow):
 					x = point[0] * gMAG + gDRAW_XSHIFT-veiw_start[0]
 					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
 					points.append([x,y])
-				dc.SetPen(wx.Pen(EDGE_COLOR, 1, wx.DOT_DASH))
-				dc.DrawLines(points)
+				self.dc.SetPen(wx.Pen(EDGE_COLOR, 1, wx.DOT_DASH))
+				self.dc.DrawLines(points)
 		if(len(gDRAWCONTOUR) > 0 and gDISP_CONTOUR):
 			for edge in gDRAWCONTOUR:
 				points = []
@@ -376,18 +399,15 @@ class Paint(wx.ScrolledWindow):
 					x = point[0] * gMAG + gDRAW_XSHIFT-veiw_start[0]
 					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
 					points.append([x,y])
-				dc.SetPen(wx.Pen(CONTOUR_COLOR, 1, wx.SOLID))
+				self.dc.SetPen(wx.Pen(CONTOUR_COLOR, 1, wx.SOLID))
 				#dc.DrawPolygon(points)
-				dc.DrawLines(points)
+				self.dc.DrawLines(points)
 	def OnMouseWheel(self, event):
-		global gMAG, gMAG_MIN, gMAG_MAX, gDRAW_XSHIFT, gDRAW_YSHIFT, WINDOW_X, WINDOW_Y, CENTER_X, CENTER_Y, gPRE_X, gPRE_Y
+		global gMAG, gMAG_MIN, gMAG_MAX, gDRAW_XSHIFT, gDRAW_YSHIFT, WINDOW_X, WINDOW_Y, CENTER_X, CENTER_Y, gPRE_X, gPRE_Y,gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY, gPAINTWINDOW_X_MAX, gPAINTWINDOW_Y_MAX, gPAINTWINDOW_X_MIN, gPAINTWINDOW_Y_MIN 
 		pos = event.GetPosition()
 		w = event.GetWheelRotation()
-		#mag_cont += copysign(1.0, w)
 		pre_mag = gMAG
 		gMAG += copysign(1.0, w)
-		#gMAG += w/100.0
-		#gMAG = 1
 		gDRAW_XSHIFT = float(CENTER_X) - (gMAG*(float(pos.x)-gDRAW_XSHIFT))/pre_mag
 		gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(pos.y)-gDRAW_YSHIFT))/pre_mag
 		gPRE_X = float(pos.x)
@@ -400,36 +420,36 @@ class Paint(wx.ScrolledWindow):
 			gMAG = gMAG_MAX
 			gDRAW_XSHIFT = float(CENTER_X) - (gMAG*(float(pos.x)-gDRAW_XSHIFT))/pre_mag
 			gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(pos.y)-gDRAW_YSHIFT))/pre_mag
-		#print 'Mag' + str(gMAG) + ", x shift=" + str(gDRAW_XSHIFT) + ", y shift=" + str(gDRAW_YSHIFT)
-		#print 'OnMouseWheel' + str(pos) + ", w=" + str(gMAG)
-		#self.OnPaint(event)
+
+		paint_window_x = int(gMAG * gPAINTWINDOW_X)
+		paint_window_y = int(gMAG * gPAINTWINDOW_Y)
+		if(gPAINTWINDOW_X_MAX < paint_window_x):
+			paint_window_x = gPAINTWINDOW_X_MAX
+		elif(gPAINTWINDOW_X_MIN > paint_window_x):
+			paint_window_x = gPAINTWINDOW_X_MIN
+		if(gPAINTWINDOW_Y_MAX < paint_window_y):
+			paint_window_y = gPAINTWINDOW_Y_MAX
+		elif(gPAINTWINDOW_Y_MIN > gPAINTWINDOW_Y):
+			paint_window_y = gPAINTWINDOW_Y_MIN
+
+		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY));
 		self.Refresh(1)
-	#def OnDrag(self, event):
-	#	pos = event.GetPosition()
-	#	print "Drag: pos=" + str(pos)
-	#	#self.Refresh(1)
-	#def OnScroll(self, event):
-	#	global gDRAW_XSHIFT, gDRAW_YSHIFT
-	#	pos = self.GetViewStart()
-	#	print "pos=" + str(pos)
-	#	gDRAW_XSHIFT -= pos[0]
-	#	gDRAW_YSHIFT -= pos[1]
-	#	print "X shif=" + str(gDRAW_XSHIFT) + ", Y shift=" + str(gDRAW_YSHIFT)
-		#self.Refresh(1)
+	def OnDrag(self, event):
+		pos = event.GetPosition()
+
 	def OnMouseLeftDown(self, event):
 		global gMouseLeftDown
 		pos = event.GetPosition()
 		gMouseLeftDown[0] = 1
 		gMouseLeftDown[1] = pos.x
 		gMouseLeftDown[2] = pos.y
-		#print "Left Down: pos=" + str(pos)
 	def OnMouseRightDown(self, event):
 		global gMouseRightDown
 		pos = event.GetPosition()
 		gMouseRightDown[0] = 1
 		gMouseRightDown[1] = pos.x
 		gMouseRightDown[2] = pos.y
-		#print "Right Down: pos=" + str(pos)
+		print "Right Down: pos=" + str(pos)
 	def OnMouseLeftUp(self, event):
 		global gMouseLeftDown, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, CENTER_X, CENTER_Y
 		pos = event.GetPosition()
@@ -445,7 +465,7 @@ class Paint(wx.ScrolledWindow):
 				gMAG = float(size.x)/float(dx/pre_mag)
 			elif(dx < 0):
 				gMAG = -float(pre_mag)/float(dx)
-			#print "gmag=" + str(gMAG)
+			print "gmag=" + str(gMAG)
 			if(dy > 0):
 				if(gMAG > float(size.y)/float(dy/pre_mag)):
 					gMAG = float(size.y)/float(dy/pre_mag)
@@ -460,9 +480,19 @@ class Paint(wx.ScrolledWindow):
 				gMAG = gMAG_MAX
 				gDRAW_XSHIFT = float(CENTER_X) - (gMAG*(float(cx)-gDRAW_XSHIFT))/pre_mag
 				gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(cy)-gDRAW_YSHIFT))/pre_mag
+			paint_window_x = int(gMAG * gPAINTWINDOW_X)
+			paint_window_y = int(gMAG * gPAINTWINDOW_Y)
+			if(gPAINTWINDOW_X_MAX < paint_window_x):
+				paint_window_x = gPAINTWINDOW_X_MAX
+			elif(gPAINTWINDOW_X_MIN > paint_window_x):
+				paint_window_x = gPAINTWINDOW_X_MIN
+			if(gPAINTWINDOW_Y_MAX < paint_window_y):
+				paint_window_y = gPAINTWINDOW_Y_MAX
+			elif(gPAINTWINDOW_Y_MIN > gPAINTWINDOW_Y):
+				paint_window_y = gPAINTWINDOW_Y_MIN
+			self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY));
 
 			self.Refresh(1)
-			#print "Left UP: pos=" + str(pos) + ", dx=" + str(dx) + ", dy=" + str(dy) + ", cx=" + str(cx) + ", cy=" + str(cy) + ", mag=" + str(gMAG)
 	def OnMouseRightUp(self, event):
 		global gMouseRightDown, gMAG
 		pos = event.GetPosition()
@@ -471,13 +501,34 @@ class Paint(wx.ScrolledWindow):
 			dx = pos.x - gMouseRightDown[1]
 			dy = pos.y - gMouseRightDown[2]
 			dist = sqrt(dx*dx + dy*dy)/gMAG
-			print dist
-	#def OnMouseLeftDClick(self, event):
-	#	pos = event.GetPosition()
-	#def OnMouseRightDClick(self, event):
-	#	pos = event.GetPosition()
-	#def OnMouseMove(self, event):
-	#	pos = event.GetPosition()
+			self.dc.DrawText(str(dist),pos.x,pos.y)
+			self.dc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
+			self.dc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
+	def OnMouseLeftDClick(self, event):	#Set center
+		pos = event.GetPosition()
+	def OnMouseRightDClick(self, event):
+		pos = event.GetPosition()
+	def OnMouseMove(self, event):
+		pos = event.GetPosition()
+		if gMouseRightDown[0]:
+			self.Refresh(1)
+			self.dc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
+			self.dc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
+		if gMouseLeftDown[0]:
+			self.Refresh(1)
+			dx = pos.x - gMouseLeftDown[1]
+			dy = pos.y - gMouseLeftDown[2]
+			x = gMouseLeftDown[1]
+			y = gMouseLeftDown[2]
+			if(dx < 0):
+				dx = -1 * dx
+				x = pos.x
+			if(dy < 0 ):
+				dy = -1 * dy
+				y = pos.y
+			self.dc.SetBrush(wx.Brush('#539e47',wx.TRANSPARENT))
+			self.dc.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.SOLID))
+			self.dc.DrawRectangle(x,y,dx,dy)
 
 class OpenFiles(wx.Dialog):
 	def __init__(self, parent, id, title):
@@ -597,6 +648,7 @@ class OpenFiles(wx.Dialog):
 		self.Bind(wx.EVT_RADIOBOX, self.EvtRadioBox1, rb1)
 		self.Bind(wx.EVT_RADIOBOX, self.EvtRadioBox2, rb2)
 
+
 		self.Centre()
 		self.Show(True)
 
@@ -675,7 +727,12 @@ class OpenFiles(wx.Dialog):
 
 
 	def OnOK(self,e):
-		global DRILL_DEPTH, CUT_DEPTH, gGERBER_FILE, gDRILL_FILE, gEDGE_FILE, gGCODE_FILE, gGDRILL_FILE, gGEDGE_FILE
+		global DRILL_DEPTH, CUT_DEPTH, gGERBER_FILE, gDRILL_FILE, gEDGE_FILE, gGCODE_FILE, gGDRILL_FILE, gGEDGE_FILE, gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR
+		#initialize
+		gPATTERNS = []
+		gDRAWDRILL = []
+		gDRAWEDGE = []
+		gDRAWCONTOUR = []
 		set_unit()
 		read_config()	
 		gcode_init()
@@ -1102,8 +1159,6 @@ def gerber2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1118,8 +1173,6 @@ def gerber2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1134,8 +1187,6 @@ def contour2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1355,6 +1406,9 @@ def edge2gcode():
 			points = edge.points
 			if(len(points) % 2):
 				error_dialog("Error:Number of points is illegal ",0)
+				#print "Number of points is illegal "
+			#print "x=" + str(gTMP_EDGE_X) + ", y=" + str(gTMP_EDGE_Y)
+			#print "x=" + str(float(points[0])+float(gXSHIFT)) + ", y=" + str(float(points[1])+float(gYSHIFT))
 			#move to Start position
 			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
 			#move to cuting heght
@@ -1440,7 +1494,7 @@ def get_date():
 def read_Gerber(filename):
 	global IN_INCH_FLAG
 	f = open(filename,'r')
-	#print "Parse Gerber data"
+	print "Parse Gerber data"
 	while 1:
 		gerber = f.readline()
 		if not gerber:
@@ -1551,7 +1605,7 @@ def parse_data(x,y,d):
 
 def check_duplication():
 	global gGCODES
-	#print "Check overlapping lines ..."
+	print "Check overlapping lines ..."
 	i = 0
 	while i< len(gGCODES)-1:
 		if(gGCODES[i].gtype == 5):
@@ -1780,7 +1834,7 @@ def end(out_file_name,out_drill_file,out_edge_file):
 
 def polygon2gcode(height,xy_speed,z_speed):
 	global gPOLYGONS
-	#print "Convert to G-code"
+	print "Convert to G-code"
 	for poly in gPOLYGONS:
 		if (poly.delete):
 			continue
@@ -1893,7 +1947,7 @@ def polygon2line(points):
 def merge():
 	global gPOLYGONS, gLINES
 	gerber2polygon()
-	#print "Start merge polygons"
+	print "Start merge polygons"
 	for poly1 in gPOLYGONS:
 		out_points=[]
 		merged=0
@@ -1930,11 +1984,11 @@ def merge():
 		poly3.delete = 1
 
 	#line_merge()
-	#print "End merge polygons"
+	print "End merge polygons"
 
 def line_merge():
 	global gPOLYGONS, gLINES
-	#print "   Start merge lines"
+	print "   Start merge lines"
 	#tmp_points = []
 	margin = 0.0001
 	for line1 in gLINES:
@@ -1962,7 +2016,7 @@ def line_merge():
 
 def merge_polygons():
 	global gPOLYGONS
-	#print "      Start merge lines 2"
+	print "      Start merge lines 2"
 	#tmp_points1 = []
 	#tmp_points2 = []
 	margin = 0.00001
@@ -2217,7 +2271,7 @@ def find_cross_point(x1,y1,x2,y2,xa,ya,xb,yb):
 def read_Drill_file(drill_file):
 	global gDRILL_D, gDRILL_TYPE, gUNIT
 	f = open(drill_file,'r')
-	#print "Read and Parse Drill data"
+	print "Read and Parse Drill data"
 	while 1:
 		drill = f.readline()
 		if not drill:
