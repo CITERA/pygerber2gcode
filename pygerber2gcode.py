@@ -495,23 +495,25 @@ class Paint(wx.ScrolledWindow):
 			dx = pos.x - gMouseRightDown[1]
 			dy = pos.y - gMouseRightDown[2]
 			dist = sqrt(dx*dx + dy*dy)/gMAG
-			dc2 = wx.PaintDC(self)
-			dc2.DrawText(str(dist),pos.x,pos.y)
-			dc2.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
-			dc2.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
+			#print dist
+			cdc = wx.ClientDC(self)
+			cdc.DrawText(str(dist),pos.x,pos.y)
+			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
+			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
 	def OnMouseLeftDClick(self, event):	#Set center
 		pos = event.GetPosition()
 	def OnMouseRightDClick(self, event):
 		pos = event.GetPosition()
 	def OnMouseMove(self, event):
+		global dc
 		pos = event.GetPosition()
 		if gMouseRightDown[0]:
 			self.Refresh(1)
-			dc1 = wx.PaintDC(self)
-			dc1.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
-			dc1.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
+			cdc = wx.ClientDC(self)
+			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
+			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
 		if gMouseLeftDown[0]:
-			self.Refresh(1)
+			#self.Refresh(1)
 			dx = pos.x - gMouseLeftDown[1]
 			dy = pos.y - gMouseLeftDown[2]
 			x = gMouseLeftDown[1]
@@ -522,10 +524,10 @@ class Paint(wx.ScrolledWindow):
 			if(dy < 0 ):
 				dy = -1 * dy
 				y = pos.y
-			dc1 = wx.PaintDC(self)
-			dc1.SetBrush(wx.Brush('#539e47',wx.TRANSPARENT))
-			dc1.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.SOLID))
-			dc1.DrawRectangle(x,y,dx,dy)
+			cdc = wx.ClientDC(self)
+			cdc.SetBrush(wx.Brush(ZOOM_COLOR,wx.TRANSPARENT))
+			cdc.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.SOLID))
+			cdc.DrawRectangle(x,y,dx,dy)
 
 class OpenFiles(wx.Dialog):
 	def __init__(self, parent, id, title):
