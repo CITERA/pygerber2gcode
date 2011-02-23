@@ -4,6 +4,7 @@
 import wx
 from string import *
 from math import *
+#from struct import *
 import os
 import sys
 import datetime
@@ -117,7 +118,7 @@ gMAG = 1.0
 gPRE_X = CENTER_X
 gPRE_Y = CENTER_X
 gMAG_MIN = 0.1
-gMAG_MAX = 500.0
+gMAG_MAX = 1000.0
 gDRAW_XSHIFT = 0.0
 gDRAW_YSHIFT = 0.0
 gDISP_GERBER = 0
@@ -163,6 +164,7 @@ class MainFrame(wx.Frame):
 		# Setting up the menu.
 		filemenu= wx.Menu()
 		menuOpen = filemenu.Append(wx.ID_OPEN,"&Open"," Open files")
+		menuReload = filemenu.Append(wx.ID_REFRESH,"&Reload"," Reload files")
 		menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
 		setupmenu =  wx.Menu()
 		menuMachine = setupmenu.Append(wx.ID_SETUP,"&Machine setup"," Setup Machine")
@@ -175,6 +177,7 @@ class MainFrame(wx.Frame):
 
 		#Event for Menu bar
 		self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
+		self.Bind(wx.EVT_MENU, self.OnReload, menuReload)
 		self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
 		self.Bind(wx.EVT_MENU, self.OnConvSet, menuConv)
 		self.Bind(wx.EVT_MENU, self.OnSetup, menuMachine)
@@ -211,6 +214,7 @@ class MainFrame(wx.Frame):
 		panel2 = wx.Panel(panel, -1)
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 
+
 		paint = Paint(panel2)
 
 		hbox1.Add(paint, 1, wx.EXPAND | wx.ALL, 2)
@@ -227,7 +231,6 @@ class MainFrame(wx.Frame):
 		vbox.Add(hbox5, 0, wx.ALIGN_RIGHT | wx.RIGHT, 10)
 
 		panel.SetSizer(vbox)
-
 		self.Centre()
 		self.Show(True)
 
@@ -272,6 +275,24 @@ class MainFrame(wx.Frame):
 		setup = ConvSetup(None, -1, 'Convert Setup')
 		setup.ShowModal()
 		setup.Destroy()
+	def OnReload(self,e):
+		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
+		#initialize
+		gPATTERNS = []
+		gDRAWDRILL = []
+		gDRAWEDGE = []
+		gDRAWCONTOUR = []
+		set_unit()
+		#read_config()	
+		gcode_init()
+		if(gGERBER_FILE):
+			read_Gerber(gGERBER_FILE)
+		if(gDRILL_FILE):
+			read_Drill_file(gDRILL_FILE)
+		if(gEDGE_FILE):
+			readEdgeFile(gEDGE_FILE)
+		gerber2draw()
+
 	def OnOpen(self,e):
 		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
 		setup = OpenFiles(None, -1, 'Open Files')
@@ -293,7 +314,6 @@ class MainFrame(wx.Frame):
 			progress = wx.ProgressDialog("Progress",'Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
 			progress.SetSize((300, 100))
 			progress.Update(5, 'Remove duplication pattern ...')
-
 			check_duplication()
 			progress.Update(7, 'Convert gerber data to polygon data ...')
 			gerber2polygon()
@@ -326,9 +346,12 @@ class MainFrame(wx.Frame):
 			dlg.Destroy() # finally destroy it when finished.
 		self.Refresh(1)
 
+
+
 class Paint(wx.ScrolledWindow):
 	def __init__(self, parent):
 		global gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY
+
 		wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
 		self.SetBackgroundColour('WHITE')
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -343,7 +366,9 @@ class Paint(wx.ScrolledWindow):
 		self.Bind(wx.EVT_RIGHT_DOWN, self.OnMouseRightDown)
 		self.Bind(wx.EVT_LEFT_UP, self.OnMouseLeftUp)
 		self.Bind(wx.EVT_RIGHT_UP, self.OnMouseRightUp)
-		self.Bind(wx.EVT_MOTION , self.OnMouseMove)
+		self.Bind(wx.EVT_MOTION , self.OnMouseMove) 
+
+
 
 		self.Centre()
 		self.Show(True)
@@ -371,7 +396,7 @@ class Paint(wx.ScrolledWindow):
 					points.append([x,y])
 				dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
 				dc.DrawPolygon(points)
-
+				#dc.DrawLines(points)
 		if(len(gDRAWDRILL) > 0 and gDISP_DRILL):
 			for drill in gDRAWDRILL:
 				x = drill.x * gMAG + gDRAW_XSHIFT-veiw_start[0]
@@ -396,13 +421,17 @@ class Paint(wx.ScrolledWindow):
 					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
 					points.append([x,y])
 				dc.SetPen(wx.Pen(CONTOUR_COLOR, 1, wx.SOLID))
+				#dc.DrawPolygon(points)
 				dc.DrawLines(points)
 	def OnMouseWheel(self, event):
 		global gMAG, gMAG_MIN, gMAG_MAX, gDRAW_XSHIFT, gDRAW_YSHIFT, WINDOW_X, WINDOW_Y, CENTER_X, CENTER_Y, gPRE_X, gPRE_Y,gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY, gPAINTWINDOW_X_MAX, gPAINTWINDOW_Y_MAX, gPAINTWINDOW_X_MIN, gPAINTWINDOW_Y_MIN 
 		pos = event.GetPosition()
 		w = event.GetWheelRotation()
+		#mag_cont += copysign(1.0, w)
 		pre_mag = gMAG
 		gMAG += copysign(1.0, w)
+		#gMAG += w/100.0
+		#gMAG = 1
 		gDRAW_XSHIFT = float(CENTER_X) - (gMAG*(float(pos.x)-gDRAW_XSHIFT))/pre_mag
 		gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(pos.y)-gDRAW_YSHIFT))/pre_mag
 		gPRE_X = float(pos.x)
@@ -415,6 +444,9 @@ class Paint(wx.ScrolledWindow):
 			gMAG = gMAG_MAX
 			gDRAW_XSHIFT = float(CENTER_X) - (gMAG*(float(pos.x)-gDRAW_XSHIFT))/pre_mag
 			gDRAW_YSHIFT = float(CENTER_Y) - (gMAG*(float(pos.y)-gDRAW_YSHIFT))/pre_mag
+		#print 'Mag' + str(gMAG) + ", x shift=" + str(gDRAW_XSHIFT) + ", y shift=" + str(gDRAW_YSHIFT)
+		#print 'OnMouseWheel' + str(pos) + ", w=" + str(gMAG)
+		#self.OnPaint(event)
 		paint_window_x = int(gMAG * gPAINTWINDOW_X)
 		paint_window_y = int(gMAG * gPAINTWINDOW_Y)
 		if(gPAINTWINDOW_X_MAX < paint_window_x):
@@ -425,11 +457,21 @@ class Paint(wx.ScrolledWindow):
 			paint_window_y = gPAINTWINDOW_Y_MAX
 		elif(gPAINTWINDOW_Y_MIN > gPAINTWINDOW_Y):
 			paint_window_y = gPAINTWINDOW_Y_MIN
+		#print "window x=" + str(paint_window_x) + ", window y=" + str(paint_window_y)
 		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY));
 		self.Refresh(1)
 	def OnDrag(self, event):
 		pos = event.GetPosition()
 		#print "Drag: pos=" + str(pos)
+		#self.Refresh(1)
+	#def OnScroll(self, event):
+	#	global gDRAW_XSHIFT, gDRAW_YSHIFT
+	#	pos = self.GetViewStart()
+	#	print "pos=" + str(pos)
+	#	gDRAW_XSHIFT -= pos[0]
+	#	gDRAW_YSHIFT -= pos[1]
+	#	print "X shif=" + str(gDRAW_XSHIFT) + ", Y shift=" + str(gDRAW_YSHIFT)
+		#self.Refresh(1)
 	def OnMouseLeftDown(self, event):
 		global gMouseLeftDown
 		pos = event.GetPosition()
@@ -513,7 +555,7 @@ class Paint(wx.ScrolledWindow):
 			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
 			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
 		if gMouseLeftDown[0]:
-			#self.Refresh(1)
+			self.Refresh(1)
 			dx = pos.x - gMouseLeftDown[1]
 			dy = pos.y - gMouseLeftDown[2]
 			x = gMouseLeftDown[1]
@@ -899,8 +941,13 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
+		#IN_INCH_FLAG = int(self.rb1.GetSelection())
+		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
+		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
+		#LEFT_X = float(self.leftx.GetValue())
+		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -911,6 +958,8 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
+		#CAD_UNIT = float(self.cadunit.GetValue())
+		#show_all_values()
 		self.Close(True)  # Close the frame.
 	def OnClose(self,e):
 		self.Close(True)  # Close the frame.
@@ -920,8 +969,13 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
+		#IN_INCH_FLAG = int(self.rb1.GetSelection())
+		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
+		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
+		#LEFT_X = float(self.leftx.GetValue())
+		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -932,6 +986,7 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
+		#CAD_UNIT = float(self.cadunit.GetValue())
 		save_config()
 		self.Close(True)  # Close the frame.
 class ConvSetup(wx.Dialog):
@@ -1174,6 +1229,8 @@ def gerber2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
+			#x = polygon.points[i] + CENTER_X
+			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1188,6 +1245,8 @@ def gerber2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
+			#x = polygon.points[i] + CENTER_X
+			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1202,6 +1261,8 @@ def contour2draw():
 		i = 0
 		points = []
 		while i < len(polygon.points)-1:
+			#x = polygon.points[i] + CENTER_X
+			#y = -polygon.points[i + 1] + CENTER_Y
 			x = polygon.points[i]
 			y = -polygon.points[i + 1]
 			points.append([x,y])
@@ -1361,8 +1422,12 @@ def readEdgeFile(edge_file):
 			dd = re.search("D([\d]+)\D",edge)
 			if (xx):
 				x = float(xx.group(1)) * EDGE_UNIT
+				#if (x != gTMP_EDGE_X):
+					#gTMP_EDGE_X = x
 			if (yy):
 				y = float(yy.group(1)) * EDGE_UNIT
+				#if (y != gTMP_Y):
+					#gTMP_EDGE_Y = y
 			if (dd):
 				if(dd.group(1) == "1" or dd.group(1) == "01"):
 					gEDGES.append(POLYGON(0, 0, 0, 0, [pre_x,pre_y,x,y], 0))
@@ -1422,6 +1487,7 @@ def edge2gcode():
 			points = edge.points
 			if(len(points) % 2):
 				error_dialog("Error:Number of points is illegal ",0)
+			#move to Start position
 			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
 			#move to cuting heght
 			if(z_depth != gTMP_EDGE_Z):
@@ -1523,7 +1589,6 @@ def read_Gerber(filename):
 			parse_g(gerber)
 		if (find(gerber, "D") == 0):
 			parse_d(gerber)
-		#if (find(gerber, "X") != -1 or find(gerber, "Y") != -1):
 		if (find(gerber, "X") == 0):
 			parse_xy(gerber)
 	f.close()
@@ -1599,12 +1664,9 @@ def parse_data(x,y,d):
 		#Flash
 		if( gDCODE[int(gFIG_NUM)].atype == "C"):
 			#Circle
-			#polygon(circle_points(x,y,mod1/2,20))
 			gGCODES.append(GCODE(x,y,0,0,1,mod1,0))
 		elif(gDCODE[int(gFIG_NUM)].atype ==  "R"):
 			#Rect
-			#points = [x-mod1/2,y-mod2/2,x-mod1/2,y+mod2/2,x+mod1/2,y+mod2/2,x+mod1/2,y-mod2/2,x-mod1/2,y-mod2/2]
-			#polygon(points)
 			gGCODES.append(GCODE(x,y,0,0,2,mod1,mod2))
 	elif(d == "02" or d == "2"):
 		#move  w light off
@@ -1665,10 +1727,6 @@ def check_duplication():
 			if(yj1>yj2):
 				yj_min=yj2
 				yj_max=yj1
-			#if(xj_min>=xi_max or xj_max<=xi_min):
-					#continue
-			#if((xj_min>=xi_min and xj_max>=xi_max) or (xj_min<=xi_min and xj_max<=xi_max)):
-					#continue
 			
 			if(ti == tj):	#same type
 				dxi=xi2-xi1
@@ -1697,30 +1755,6 @@ def check_duplication():
 							#overlap
 							gGCODES[i].gtype=5
 							
-			j += 1
-		i +=1
-
-def check_duplication_old():
-	global gGCODES
-	i = 0
-	while i< len(gGCODES)-1:
-		xi1=gGCODES[i].x1
-		yi1=gGCODES[i].y1
-		xi2=gGCODES[i].x2
-		yi2=gGCODES[i].y2
-		ti=gGCODES[i].gtype
-		j = i + 1
-		while j< len(gGCODES):
-			xj1=gGCODES[j].x1
-			yj1=gGCODES[j].y1
-			xj2=gGCODES[j].x2
-			yj2=gGCODES[j].y2
-			tj=gGCODES[j].gtype
-			if((xi1 == xj1 and yi1 == yj1 and xi2 == xj2 and yi2 == yj2) or (xi1 == xj2 and yi1 == yj2 and xi2 == xj1 and yi2 == yj1)):
-				#same line
-				if(ti == tj):
-					#same line, same type
-					gGCODES[j].gtype=5
 			j += 1
 		i +=1
 
@@ -1955,7 +1989,6 @@ def calc_shift():
 	global gXSHIFT, gYSHIFT, gXMIN, gYMIN, LEFT_X, LOWER_Y
 	gXSHIFT = LEFT_X - gXMIN
 	gYSHIFT = LOWER_Y - gYMIN
-	#print "x_shift=" + str(gXSHIFT) + "y_shift=" + str(gYSHIFT)
 
 def polygon2line(points):
 	global gLINES
@@ -2037,8 +2070,6 @@ def line_merge():
 def merge_polygons():
 	global gPOLYGONS
 	#print "      Start merge lines 2"
-	#tmp_points1 = []
-	#tmp_points2 = []
 	margin = 0.00001
 	for poly1 in gPOLYGONS:
 		if(poly1.delete):
@@ -2059,14 +2090,10 @@ def merge_polygons():
 				tmp_points2.pop()
 				tmp_points1 = tmp_points2 + tmp_points1
 				poly2.delete = 1
-			#elif(dist1 < margin and dist2 < margin):
-				#print "error dist1=" + str(dist1) + ", dist2=" + str(dist2)
-				#print "xi=" + str(tmp_points1[0]) + "xj=" +  str(tmp_points2[len(tmp_points2)-2]) + "yi=" + str(tmp_points1[1]) + "yj=" +  str(tmp_points2[-1])			
-				#poly2.delete = 1
 		poly1.points = tmp_points1
 
 def CrossAndIn(line_id,spoints):
-	global gLINES
+	global gLINES, gCCOUNT1, gCCOUNT2
 	#check in or out
 	xa = gLINES[line_id].x1
 	ya = gLINES[line_id].y1
@@ -2082,22 +2109,25 @@ def CrossAndIn(line_id,spoints):
 	cross_flag = 0
 	tmp_flag = 0
 	return_flag = 0
+	ovflag = 0
 	si = 0
 	while si< len(spoints)-2:
-		#reset flags
-		flagX1 = 0
-		flagX2 = 0
-		flagY1 = 0
-		flagY2 = 0
 		xp1=spoints[si]
 		yp1=spoints[si+1]
 		xp2=spoints[si+2]
 		yp2=spoints[si+3]
+		if(IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)):
+			ovflag = 1
 		(cross_flag,cross_x,cross_y)=find_cross_point(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
 		cross_num+=cross_flag
 		if(cross_flag):
 			cross_points.extend([cross_x,cross_y])
 			cross_nums.append(si)
+		#reset flags
+		flagX1 = 0
+		flagX2 = 0
+		flagY1 = 0
+		flagY2 = 0
 		#Is Point A IN?
 		if(xa <= xp1):
 			flagX1 = 1
@@ -2123,6 +2153,8 @@ def CrossAndIn(line_id,spoints):
 						cross_count1 -= 1
 					else:
 						cross_count1 += 1
+
+
 		#Is Point B IN?
 		#reset flags
 		flagX1 = 0
@@ -2162,26 +2194,34 @@ def CrossAndIn(line_id,spoints):
 		in_flag1 = 1
 	else:
 		in_flag1 = 0
-
 	if(cross_count2):#
 		in_flag2 = 1
 	else:
 		in_flag2 = 0
 
+
 	if(cross_num>1):
 		cross_points = sort_points_by_dist(xa,ya,cross_points)
-		gLINES[line_id].x2 = cross_points[0]
-		gLINES[line_id].y2 = cross_points[1]
-		gLINES[line_id].inside = in_flag1
+		if(calc_dist(gLINES[line_id].x1,gLINES[line_id].y1,cross_points[0],cross_points[1])<=0.0):
+			if(in_flag1 != in_flag2):
+				gLINES[line_id].inside = 1
+			else:
+				gLINES[line_id].inside = in_flag1
+			tmp_flag = in_flag1
+			tmp_x=gLINES[line_id].x1
+			tmp_y=gLINES[line_id].y1
+		else:
+			gLINES[line_id].x2 = cross_points[0]
+			gLINES[line_id].y2 = cross_points[1]
+			gLINES[line_id].inside = in_flag1
+			tmp_x=cross_points[0]
+			tmp_y=cross_points[1]
 		if(in_flag1):
 			tmp_flag=0
 		else:
 			tmp_flag=1
-
-		tmp_x=cross_points[0]
-		tmp_y=cross_points[1]
-		i = 0
-		while i < len(cross_points):
+		i = 2
+		while i < len(cross_points)-2:
 			gLINES.append(LINE(tmp_x,tmp_y,cross_points[i],cross_points[i+1],tmp_flag,0))
 			if(in_flag1):
 				tmp_flag = 0
@@ -2191,7 +2231,8 @@ def CrossAndIn(line_id,spoints):
 			tmp_y=cross_points[i+1]
 			i += 2
 		#end while
-		gLINES.append(LINE(cross_points[len(cross_points)-2],cross_points[len(cross_points)-1],xb,yb,in_flag2,0))
+		if(calc_dist(cross_points[len(cross_points)-2],cross_points[len(cross_points)-1],xb,yb)>0.0):
+			gLINES.append(LINE(cross_points[len(cross_points)-2],cross_points[len(cross_points)-1],xb,yb,in_flag2,0))
 	
 	elif(cross_num==1):
 		if(in_flag1 == in_flag2):
@@ -2199,10 +2240,17 @@ def CrossAndIn(line_id,spoints):
 			gLINES[line_id].inside=in_flag1
 		else:
 			#in out
-			gLINES[line_id].x2 = cross_points[0]
-			gLINES[line_id].y2 = cross_points[1]
-			gLINES[line_id].inside = in_flag1
-			gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,in_flag2,0))
+			if(ovflag <=0):
+				gLINES[line_id].x2 = cross_points[0]
+				gLINES[line_id].y2 = cross_points[1]
+				gLINES[line_id].inside = in_flag1
+				gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,in_flag2,0))
+			else:
+				#overlap
+				gLINES[line_id].x2 = cross_points[0]
+				gLINES[line_id].y2 = cross_points[1]
+				gLINES[line_id].inside = 0
+				gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,0,0))
 	else:
 		if(in_flag1 != in_flag2):
 			gLINES[line_id].inside = in_flag1
@@ -2216,6 +2264,56 @@ def CrossAndIn(line_id,spoints):
 	else:
 		return 0
 
+def IsLineOverlap(x1,y1,x2,y2,xa,ya,xb,yb):
+	global TINY
+	#print "check overlap"
+	dx1 = x2-x1
+	dy1 = y2-y1
+	dx2 = xb-xa
+	dy2 = yb-ya
+	if(abs(dx1)  < TINY):
+		if(abs(dx2) < TINY):
+			if(abs(x1-xa) < TINY):
+				if(dy1 > 0):	#+
+					if(y1 <= ya and y2 >= ya):
+						return 1
+					if(y1 <= yb and y2 >= yb):
+						return 2
+				elif(dy1 < 0):	#-
+					if(y2 <= ya and y1 >= ya):
+						return 3
+					if(y2 <= yb and y1 >= yb):
+						return 4
+				return 0
+			else:
+				return 0
+		else:
+			return 0
+	else:
+		if(abs(dx2) < TINY):
+			return 0
+		else:
+			a1 = (dy1)/(dx1)
+			b1 = y1-a1*x1
+			a2 = (dy2)/(dx2)
+			b2 = ya-a2*xa
+			if(abs(a1-a2) < TINY):
+				if(abs(b2-b1) < TINY):
+					if(dx1 > 0):	#+
+						if(x1 <= xa and x2 >= xa):
+							return 5
+						if(x1 <= xb and x2 >= xb):
+							return 6	#
+					elif(dx1 < 0):	#-
+						if(x2 <= xa and x1 >= xa):
+							return 7 #
+						if(x2 <= xb and x1 >= xb):
+							return 8
+				else:
+					return 0
+			else:
+				return 0
+	return 0
 def sort_points_by_dist(x,y,points):
 	return_points=[]
 	return_pos=[]
@@ -2302,6 +2400,7 @@ def read_Drill_file(drill_file):
 		if(drill_data):
 			gDRILL_TYPE[int(drill_data.group(1))] = drill_data.group(2)
 		if(drill_num):
+			#print drill_d_unit
 			gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * drill_d_unit
 			#gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * gUNIT
 		if (find(drill, "X") != -1 or find(drill, "Y") != -1):
