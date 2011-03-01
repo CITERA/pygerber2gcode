@@ -276,12 +276,18 @@ class MainFrame(wx.Frame):
 		setup.ShowModal()
 		setup.Destroy()
 	def OnReload(self,e):
-		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
+		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gPOLYGONS, gLINES, gEDGES, gDRILLS, gGCODES
 		#initialize
+		gPOLYGONS = []
+		gLINES = []
+		gEDGES = []
+		gDRILLS = []
+		gGCODES = []
 		gPATTERNS = []
 		gDRAWDRILL = []
 		gDRAWEDGE = []
 		gDRAWCONTOUR = []
+		self.Refresh(1)
 		set_unit()
 		#read_config()	
 		gcode_init()
