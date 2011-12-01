@@ -51,6 +51,8 @@ LOWER_Y = 5.0
 OUT_INCH_FLAG = 0
 IN_INCH_FLAG = 1
 CAD_UNIT = MIL/10
+DRILL_UNIT = INCH
+EDGE_UNIT = MIL/10
 GERBER_EXT = '*.gtl'
 DRILL_EXT = '*.drl'
 EDGE_EXT = '*.gbr'
@@ -93,6 +95,7 @@ gDRILL_TYPE = [0]*100
 gDRILL_D = 0
 gPOLYGONS = []
 gLINES = []
+gLINES2 = []
 gEDGES = []
 gDRILLS = []
 gGCODES = []
@@ -123,23 +126,11 @@ gDISP_DRILL = 0
 gDISP_EDGE = 0
 gDISP_CONTOUR = 0
 
-gCOLORS = [
-'AQUAMARINE','BLACK','BLUE','BLUE VIOLET','BROWN',
-'CADET BLUE','CORAL','CORNFLOWER BLUE','CYAN','DARK GREY',
-'DARK GREEN', 'DARK OLIVE GREEN', 'DARK ORCHID', 'DARK SLATE BLUE', 'DARK SLATE GREY',
-'DARK TURQUOISE', 'DIM GREY', 'FIREBRICK', 'FOREST GREEN', 'GOLD',
-'GOLDENROD', 'GREY', 'GREEN', 'GREEN YELLOW', 'INDIAN RED',
-'KHAKI', 'LIGHT BLUE', 'LIGHT GREY', 'LIGHT STEEL BLUE', 'LIME GREEN',
-'MAGENTA', 'MAROON', 'MEDIUM AQUAMARINE', 'MEDIUM BLUE', 'MEDIUM FOREST GREEN',
-'MEDIUM GOLDENROD', 'MEDIUM ORCHID', 'MEDIUM SEA GREEN', 'MEDIUM SLATE BLUE', 'MEDIUM SPRING GREEN',
-'MEDIUM TURQUOISE', 'MEDIUM VIOLET RED', 'MIDNIGHT BLUE', 'NAVY', 'ORANGE',
-'ORANGE RED', 'ORCHID', 'PALE GREEN', 'PINK', 'PLUM',
-'PURPLE', 'RED', 'SALMON', 'SEA GREEN', 'SIENNA',
-'SKY BLUE', 'SLATE BLUE', 'SPRING GREEN', 'STEEL BLUE', 'TAN',
-'THISTLE ', 'TURQUOISE', 'VIOLET', 'VIOLET RED', 'WHEAT',
-'WHITE', 'YELLOW', 'YELLOW GREEN'
-]
+TEST_POINTS1 =[]
+TEST_POINTS2 =[]
+TEST_POINT_R = 0.01
 
+PRE_IN_FLAG = -1
 #Set Class
 class DRAWPOLY:
 	def __init__(self, points, color ,delete):
@@ -162,6 +153,19 @@ class LINE:
 		self.y1 = y1
 		self.x2 = x2
 		self.y2 = y2
+		self.inside = inside
+		self.delete = delete
+class LINE2:
+	def __init__(self, p1, p2, inside, delete):
+		self.p1 = p1
+		self.p2 = p2
+		self.inside = inside
+		self.delete = delete
+
+class POINT:
+	def __init__(self, x, y, inside, delete):
+		self.x = x
+		self.y = y
 		self.inside = inside
 		self.delete = delete
 
@@ -190,15 +194,27 @@ class GCODE:
 
 #functions
 def main():
-	in_file="test1_pcb.gtl"
-	drill_file="test1_drill.drl"
-	edge_file = "test1_edge.gbr"
-
-
-	in_file="avr_test1.gtl"
+	#in_file="colpitts1-Front0.gtl" #with filling zone
+	#in_file="colpitts1-Front_1.gtl" #1lines and 1 rect
+	in_file="colpitts1-Front_1_1.gtl" #1lines and 1 rect
+	#in_file="colpitts1-Front_2.gtl" #2 line and 1 rect
+	#in_file="colpitts1-Front_3.gtl" #3 lines and 2 rects
+	#in_file="colpitts1-Front_4.gtl"
+	#in_file="colpitts1-Front_4_1.gtl"
+	#in_file="colpitts1-Front_5.gtl"
+	#in_file="colpitts1-Front_6.gtl"
+	#in_file="colpitts1-Front_7.gtl"	#for zone error
+	#in_file="colpitts1-Front_8.gtl"	#for zone error
+	#in_file="colpitts1-Front_all.gtl"
+	#in_file="uav1_1-Front.gtl"
+	#in_file="avr_test1.gtl"
+	#in_file="MICAMP.gtl"
+	#in_file="msop10.gtl"
+	#in_file="test_msop1.gtl"
+	#drill_file="uav1_1.drl"
 	drill_file="avr_test1.drl"
 	edge_file = "avr_test1_edge.gbr"
-
+	#drill_sw = 0	#for check
 	out_file = "test_gcode.ngc"
 	out_drill_file = "test_drill.ngc"
 	out_edge_file = "test_edge.ngc"
@@ -206,60 +222,12 @@ def main():
 	set_unit()
 	gcode_init()
 	read_Gerber(in_file)
-	merge()
-	read_Drill_file(drill_file)
-	do_drill()
-	readEdgeFile(edge_file)
-	mergeEdge()
-	edge2gcode()
-	end(out_file,out_drill_file,out_edge_file)
-def gerber2draw():
-	global gPOLYGONS, gDRILLS, gEDGES, gPATTERNS, CENTER_X, CENTER_Y, gDRAWDRILL, gDRAWEDGE
-	for polygon in gPOLYGONS:
-		if (polygon.delete):
-			continue
-		i = 0
-		points = []
-		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
-			x = polygon.points[i]
-			y = -polygon.points[i + 1]
-			points.append([x,y])
-			i += 2
-		gPATTERNS.append(DRAWPOLY(points,"",0))
-	for drill in gDRILLS:
-		x = drill.x
-		y = -drill.y
-		d = drill.d
-		gDRAWDRILL.append(DRILL(x,y,d,0))
-	for polygon in gEDGES:
-		i = 0
-		points = []
-		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
-			x = polygon.points[i]
-			y = -polygon.points[i + 1]
-			points.append([x,y])
-			i += 2
-		gDRAWEDGE.append(DRAWPOLY(points,"",0))
+	check_duplication()
+	gerber2polygon()
+	#merge()
 
-def contour2draw():
-	global gPOLYGONS, gDRAWCONTOUR
-	for polygon in gPOLYGONS:
-		if (polygon.delete):
-			continue
-		i = 0
-		points = []
-		while i < len(polygon.points)-1:
-			#x = polygon.points[i] + CENTER_X
-			#y = -polygon.points[i + 1] + CENTER_Y
-			x = polygon.points[i]
-			y = -polygon.points[i + 1]
-			points.append([x,y])
-			i += 2
-		gDRAWCONTOUR.append(DRAWPOLY(points,"",0))
+	end(out_file,out_drill_file,out_edge_file)
+
 
 def set_unit():
 	global IN_INCH_FLAG, OUT_INCH_FLAG, gUNIT, INCH
@@ -270,262 +238,6 @@ def set_unit():
 	else:
 		gUNIT = 1.0
 
-def save_config():
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT
-
-	config_data =""
-	config_data += "INI_X=" + str(INI_X) + "\n"
-	config_data += "INI_Y=" + str(INI_Y) + "\n"
-	config_data += "INI_Z=" + str(INI_Z) + "\n"
-	config_data += "MOVE_HEIGHT=" + str(MOVE_HEIGHT) + "\n"
-	config_data += "IN_INCH_FLAG=" + str(IN_INCH_FLAG) + "\n"
-	config_data += "OUT_INCH_FLAG=" + str(OUT_INCH_FLAG) + "\n"
-	config_data += "MCODE_FLAG=" + str(MCODE_FLAG) + "\n"
-	config_data += "XY_SPEED=" + str(XY_SPEED) + "\n"
-	config_data += "Z_SPEED=" + str(Z_SPEED) + "\n"
-	config_data += "LEFT_X=" + str(LEFT_X) + "\n"
-	config_data += "LOWER_Y=" + str(LOWER_Y) + "\n"
-	config_data += "DRILL_SPEED=" + str(DRILL_SPEED) + "\n"
-	config_data += "DRILL_DEPTH=" + str(DRILL_DEPTH) + "\n"
-	config_data += "CUT_DEPTH=" + str(CUT_DEPTH) + "\n"
-	config_data += "TOOL_D=" + str(TOOL_D) + "\n"
-	config_data += "DRILL_D=" + str(DRILL_D) + "\n"
-	config_data += "CAD_UNIT=" + str(CAD_UNIT) + "\n"
-	config_data += "EDGE_TOOL_D=" + str(EDGE_TOOL_D) + "\n"
-	config_data += "EDGE_DEPTH=" + str(EDGE_DEPTH) + "\n"
-	config_data += "EDGE_SPEED=" + str(EDGE_SPEED) + "\n"
-	config_data += "EDGE_Z_SPEED=" + str(EDGE_Z_SPEED) + "\n"
-	config_data += "MERGE_DRILL_DATA=" + str(MERGE_DRILL_DATA) + "\n"
-	config_data += "Z_STEP=" + str(Z_STEP) + "\n"
-	config_data += "GERBER_COLOR=" + str(GERBER_COLOR) + "\n"
-	config_data += "DRILL_COLOR=" + str(DRILL_COLOR) + "\n"
-	config_data += "EDGE_COLOR=" + str(EDGE_COLOR) + "\n"
-	config_data += "CONTOUR_COLOR=" + str(CONTOUR_COLOR) + "\n"
-	config_data += "GERBER_EXT=" + str(GERBER_EXT) + "\n"
-	config_data += "DRILL_EXT=" + str(DRILL_EXT) + "\n"
-	config_data += "EDGE_EXT=" + str(EDGE_EXT) + "\n"
-	config_data += "GCODE_EXT=" + str(GCODE_EXT) + "\n"
-	config_data += "GDRILL_EXT=" + str(GDRILL_EXT) + "\n"
-	config_data += "GEDGE_EXT=" + str(GEDGE_EXT) + "\n"
-	out = open(CONFIG_FILE, 'w')
-	out.write(config_data)
-	out.close()
-def read_config():
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT
-	try:
-		f = open(CONFIG_FILE,'r')
-	except IOError, (errno, strerror):
-		error_dialog("Unable to open the file" + CONFIG_FILE + "\n",1)
-	else:
-		while 1:
-			config = f.readline()
-			if not config:
-				break
-			cfg = re.search("([A-Z\_]+)\s*\=\s*([\-\d\.]+)",config)
-			if (cfg):
-				if(cfg.group(1)=="INI_X"):
-					INI_X = float(cfg.group(2))
-				if(cfg.group(1)=="INI_Y"):
-					INI_Y = float(cfg.group(2))
-				if(cfg.group(1)=="INI_Z"):
-					INI_Z = float(cfg.group(2))
-				if(cfg.group(1)=="MOVE_HEIGHT"):
-					MOVE_HEIGHT = float(cfg.group(2))
-				if(cfg.group(1)=="OUT_INCH_FLAG"):
-					OUT_INCH_FLAG = int(cfg.group(2))
-				if(cfg.group(1)=="IN_INCH_FLAG"):
-					IN_INCH_FLAG = int(cfg.group(2))
-				if(cfg.group(1)=="MCODE_FLAG"):
-					MCODE_FLAG = int(cfg.group(2))
-				if(cfg.group(1)=="XY_SPEED"):
-					XY_SPEED = int(cfg.group(2))
-				if(cfg.group(1)=="Z_SPEED"):
-					Z_SPEED = int(cfg.group(2))
-				if(cfg.group(1)=="LEFT_X"):
-					LEFT_X = float(cfg.group(2))
-				if(cfg.group(1)=="LOWER_Y"):
-					LOWER_Y = float(cfg.group(2))
-				if(cfg.group(1)=="DRILL_SPEED"):
-					DRILL_SPEED = int(cfg.group(2))
-				if(cfg.group(1)=="DRILL_DEPTH"):
-					DRILL_DEPTH = float(cfg.group(2))
-				if(cfg.group(1)=="CUT_DEPTH"):
-					CUT_DEPTH = float(cfg.group(2))
-				if(cfg.group(1)=="TOOL_D"):
-					TOOL_D = float(cfg.group(2))
-				if(cfg.group(1)=="DRILL_D"):
-					DRILL_D = float(cfg.group(2))
-				if(cfg.group(1)=="CAD_UNIT"):
-					CAD_UNIT = float(cfg.group(2))
-				if(cfg.group(1)=="EDGE_TOOL_D"):
-					EDGE_TOOL_D = float(cfg.group(2))
-				if(cfg.group(1)=="EDGE_DEPTH"):
-					EDGE_DEPTH = float(cfg.group(2))
-				if(cfg.group(1)=="EDGE_SPEED"):
-					EDGE_SPEED = int(cfg.group(2))
-				if(cfg.group(1)=="EDGE_Z_SPEED"):
-					EDGE_Z_SPEED = int(cfg.group(2))
-				if(cfg.group(1)=="MERGE_DRILL_DATA"):
-					MERGE_DRILL_DATA = int(cfg.group(2))
-				if(cfg.group(1)=="Z_STEP"):
-					Z_STEP = float(cfg.group(2))
-				if(cfg.group(1)=="GERBER_COLOR"):
-					GERBER_COLO = str(cfg.group(2))
-				if(cfg.group(1)=="DRILL_COLOR"):
-					DRILL_COLOR = str(cfg.group(2))
-				if(cfg.group(1)=="EDGE_COLOR"):
-					EDGE_COLOR = str(cfg.group(2))
-				if(cfg.group(1)=="CONTOUR_COLOR"):
-					CONTOUR_COLOR = str(cfg.group(2))
-				if(cfg.group(1)=="GERBER_EXT"):
-					GERBER_EXT = str(cfg.group(2))
-				if(cfg.group(1)=="DRILL_EXT"):
-					DRILL_EXT = str(cfg.group(2))
-				if(cfg.group(1)=="EDGE_EXT"):
-					EDGE_EXT = str(cfg.group(2))
-				if(cfg.group(1)=="GCODE_EXT"):
-					GCODE_EXT = str(cfg.group(2))
-				if(cfg.group(1)=="GDRILL_EXT"):
-					GDRILL_EXT = str(cfg.group(2))
-				if(cfg.group(1)=="GEDGE_EXT"):
-					GEDGE_EXT = str(cfg.group(2))
-		f.close()
-
-def readEdgeFile(edge_file):
-	global gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGE_DATA, gEDGES, CAD_UNIT, OUT_INCH_FLAG, IN_INCH_FLAG
-	try:
-		f = open(edge_file,'r')
-	except IOError, (errno, strerror):
-		error_dialog("Unable to open the file" + edge_file + "\n",1)
-	else:
-		pre_x = gTMP_EDGE_X
-		pre_y = gTMP_EDGE_Y
-		while 1:
-			edge = f.readline()
-			if not edge:
-				break
-			xx = re.search("X([\d\.\-]+)\D",edge)
-			yy = re.search("Y([\d\-]+)\D",edge)
-			dd = re.search("D([\d]+)\D",edge)
-			if (xx):
-				x = float(xx.group(1)) * CAD_UNIT
-				#if (x != gTMP_EDGE_X):
-					#gTMP_EDGE_X = x
-			if (yy):
-				y = float(yy.group(1)) * CAD_UNIT
-				#if (y != gTMP_Y):
-					#gTMP_EDGE_Y = y
-			if (dd):
-				if(dd.group(1) == "1" or dd.group(1) == "01"):
-					gEDGES.append(POLYGON(0, 0, 0, 0, [pre_x,pre_y,x,y], 0))
-					#gEDGES.append(LINE(pre_x,pre_y,x,y,0,0))
-				elif(dd.group(1) == "2" or dd.group(1) == "02"):
-					pre_x = x
-					pre_y = y
-		f.close()
-def mergeEdge():
-	global gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGE_DATA, gEDGES, MERGINE
-	for edge1 in gEDGES:
-		if(edge1.delete):
-			continue
-		tmp_points1 = edge1.points
-		for edge2 in gEDGES:
-			if(edge2.delete or edge2 == edge1):
-				continue
-			tmp_points2 = edge2.points	
-			dist1 = calc_dist(edge1.points[0],edge1.points[1],edge2.points[0], edge2.points[1])
-			dist2 = calc_dist(edge1.points[0],edge1.points[1],edge2.points[len(edge2.points)-2], edge2.points[-1])
-			dist3 = calc_dist(edge1.points[len(edge1.points)-2],edge1.points[-1],edge2.points[0], edge2.points[1])
-			dist4 = calc_dist(edge1.points[len(edge1.points)-2],edge1.points[-1],edge2.points[len(edge2.points)-2], edge2.points[-1])
-			#print "dist1=" + str(dist1) + ", dist2=" + str(dist2) + ", dist3=" + str(dist3) + ", dist4=" + str(dist4)
-			if(dist2 < MERGINE):
-				#join
-				del tmp_points1[0:2]
-				tmp_points1 = tmp_points2 + tmp_points1
-				edge2.delete = 1
-			elif(dist3 < MERGINE):
-				#join
-				del tmp_points2[0:2]
-				tmp_points1 = tmp_points1 + tmp_points2
-				edge2.delete = 1
-			elif(dist1 < MERGINE):
-				#join
-				tmp_points2 = points_revers(tmp_points2)
-				del tmp_points1[0:2]
-				tmp_points1 = tmp_points2 + tmp_points1
-				edge2.delete = 1
-			elif(dist4 < MERGINE):
-				#join
-				tmp_points2 = points_revers(tmp_points2)
-				del tmp_points2[0:2]
-				tmp_points1 = tmp_points1 + tmp_points2
-				edge2.delete = 1
-			edge1.points=tmp_points1
-			#print "len=" + str(len(edge1.points)) + ", edges=" + str(len(gEDGES))
-			#print edge1.points
-def edge2gcode():
-	global gEDGE_DATA, gXSHIFT, gYSHIFT, gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z, gEDGES, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
-	out_data = "G01"
-	gcode_tmp_flag = 0
-	z_step_n = int(EDGE_DEPTH/Z_STEP) + 1
-	z_step = EDGE_DEPTH/z_step_n
-	j = 1
-	while j <= z_step_n:
-		z_depth = j*z_step
-		for edge in gEDGES:
-			if(edge.delete):
-				continue
-			points = edge.points
-			if(len(points) % 2):
-				error_dialog("Error:Number of points is illegal ",0)
-			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
-			#move to cuting heght
-			if(z_depth != gTMP_EDGE_Z):
-				gTMP_EDGE_Z=z_depth
-				gEDGE_DATA += "G01Z" + str(z_depth) + "F" + str(EDGE_Z_SPEED) + "\n"
-			i = 0
-			while i< len(points):
-				px=float(points[i])+gXSHIFT
-				py=float(points[i+1])+gYSHIFT
-				if (px != gTMP_EDGE_X):
-					gTMP_EDGE_X=px
-					out_data +="X" + str(px)
-					gcode_tmp_flag = 1
-				if(py != gTMP_EDGE_Y):
-					gTMP_EDGE_Y=py
-					out_data +="Y" + str(py)
-					gcode_tmp_flag=1
-				if(gcode_tmp_flag):
-					#Goto initial X-Y position
-					out_data +="F" + str(EDGE_SPEED)
-					gEDGE_DATA += out_data + "\n"
-					out_data ="G01"
-				gcode_tmp_flag=0
-				i += 2
-		j += 1
-def move_edge(x,y):
-	global MOVE_HEIGHT, gTMP_EDGE_X, gTMP_EDGE_Y, gTMP_EDGE_Z
-	xy_data = "G00"
-	out_data = ""
-	#print out_data
-	gcode_tmp_flag = 0
-	if(x != gTMP_EDGE_X):
-		gTMP_EDGE_X = x
-		xy_data += "X" + str(x)
-		gcode_tmp_flag=1
-	if(y != gTMP_EDGE_Y):
-		gTMP_EDGE_Y = y
-		xy_data += "Y" + str(y)
-		gcode_tmp_flag = 1
-	if(MOVE_HEIGHT!=gTMP_EDGE_Z):
-		gTMP_EDGE_Z = MOVE_HEIGHT
-		#Goto moving Z position
-		out_data = "G00Z" + str(MOVE_HEIGHT) + "\n"
-	if(gcode_tmp_flag):
-		#Goto initial X-Y position
-		return out_data + xy_data + "\n"
-	else:
-		return ""
 
 def points_revers(points):
 	return_points = []
@@ -576,6 +288,8 @@ def read_Gerber(filename):
 			parse_add(gerber)
 		#if(find(gerber, "%AM") != -1):
 			#do nothing
+		if (find(gerber, "D") == 0):
+			parse_d(gerber)
 		if (find(gerber, "G") != -1):
 			parse_g(gerber)
 		#if (find(gerber, "X") != -1 or find(gerber, "Y") != -1):
@@ -584,7 +298,7 @@ def read_Gerber(filename):
 	f.close()
 	#check_duplication()
 	#gerber2polygon()
-	gerber2polygon4draw()
+	#gerber2polygon4draw()
 
 def parse_add(gerber):
 	global gDCODE,D_DATA
@@ -604,7 +318,13 @@ def parse_add(gerber):
 		return
 
 	gDCODE[int(d_num)] = D_DATA(aperture_type,mod1,mod2)
-
+def parse_d(gerber):
+	global g54_FLAG, gFIG_NUM
+	#print gerber
+	index_d=find(gerber, "D")
+	index_ast=find(gerber, "*")
+	g54_FLAG = 1
+	gFIG_NUM=gerber[index_d+1:index_ast]
 def parse_g(gerber):
 	global gTMP_X, gTMP_Y, gTMP_Z, g54_FLAG, gFIG_NUM
 	index_d=find(gerber, "D")
@@ -673,33 +393,43 @@ def parse_data(x,y,d):
 		gGERBER_TMP_Y = y
 
 def check_duplication():
-	global gGCODES
+	global gGCODES,TINY
 	print "Check overlapping lines ..."
 	i = 0
+
 	while i< len(gGCODES)-1:
-		if(gGCODES[i].gtype == 1 or gGCODES[i].gtype == 2):
+		if(gGCODES[i].gtype == 0):
 			i += 1
 			continue
-		xi1=gGCODES[i].x1
-		yi1=gGCODES[i].y1
-		xi2=gGCODES[i].x2
-		yi2=gGCODES[i].y2
+		m_x1_flag=0
+		m_y1_flag=0
+		#xi1=gGCODES[i].x1
+		#yi1=gGCODES[i].y1
+		#xi2=gGCODES[i].x2
+		#yi2=gGCODES[i].y2
 		ti=gGCODES[i].gtype
-		xi_min=xi1
-		xi_max=xi2
-		yi_min=yi1
-		yi_max=yi2
-		if(xi1>xi2):
-			xi_min=xi2
-			xi_max=xi1
-		if(yi1>yi2):
-			yi_min=yi2
-			yi_max=yi1
+		xi_min=gGCODES[i].x1
+		xi_max=gGCODES[i].x2
+		yi_min=gGCODES[i].y1
+		yi_max=gGCODES[i].y2
+		if(gGCODES[i].x1>gGCODES[i].x2):
+			xi_min=gGCODES[i].x2
+			xi_max=gGCODES[i].x1
+			m_x1_flag=1
+		if(gGCODES[i].y1>gGCODES[i].y2):
+			yi_min=gGCODES[i].y2
+			yi_max=gGCODES[i].y1
+			m_y1_flag=1
 		j = i + 1
 		while j< len(gGCODES):
-			#if(gGCODES[j].gtype == 1 or gGCODES[j].gtype == 2 or ti != gGCODES[j].gtype):
+			if(gGCODES[j].gtype == 0):
+				j += 1
+				continue
+			if(gGCODES[i].gtype == 0):
 				#j += 1
-				#continue
+				break
+			m_x2_flag=0
+			m_y2_flag=0
 			xj1=gGCODES[j].x1
 			yj1=gGCODES[j].y1
 			xj2=gGCODES[j].x2
@@ -712,72 +442,387 @@ def check_duplication():
 			if(xj1>xj2):
 				xj_min=xj2
 				xj_max=xj1
+				m_x2_flag=1
 			if(yj1>yj2):
 				yj_min=yj2
 				yj_max=yj1
-			if(xj_min>=xi_max or xj_max<=xi_min):
-					j += 1
-					continue
-			if(yj_min>=yi_max or yj_max<=yi_min):
-					j += 1
-					continue
-			#if((xj_min > xi_min and xj_max > xi_max) or (xj_min < xi_min and xj_max < xi_max)):
-					#j += 1
+				m_y2_flag=1
+			#if(xj_min>=xi_max or xj_max<=xi_min):
 					#continue
+			#if((xj_min>=xi_min and xj_max>=xi_max) or (xj_min<=xi_min and xj_max<=xi_max)):
+					#continue
+			
+			if(ti == tj):	#same type
+				if(ti == 3 or ti == 4):
+					dxi=gGCODES[i].x2-gGCODES[i].x1
+					dyi=gGCODES[i].y2-gGCODES[i].y1
+					dxj=xj2-xj1
+					dyj=yj2-yj1
+					if(abs(dxi) >= TINY):
+						ai=dyi/dxi
+						bi=gGCODES[i].y1-ai*gGCODES[i].x1
+						if(abs(dxj) >= TINY):
+							aj=dyj/dxj
+							bj=yj1-aj*xj1
+							if(abs(aj-ai) < TINY and abs(bj-bi) < TINY):
+								#print "a=" + str(ai)
+								if(xj_min>=xi_min):
+									#print "a"
+									if(xj_max<=xi_max):
+										#print "aa"
+										#overlap
+										if(gGCODES[i].mod1 >= gGCODES[j].mod1):
+											gGCODES[j].gtype=0
+									elif(xi_max >= xj_min):	# xj_max > xi_max
+										if(gGCODES[i].mod1 == gGCODES[j].mod1):
+											#print "ab i=" +str(i) + ", j=" + str(j)
+											gGCODES[j].gtype=0
+											#gGCODES[i].x1 = xi_min
+											#gGCODES[i].y1 = gGCODES[i].y1
+											if(m_x1_flag):	#if xi_min = gGCODES[i].x2
+												gGCODES[i].x1 = xi_min
+												gGCODES[i].y1 = gGCODES[i].y2
+											gGCODES[i].x2 = xj_max
+											gGCODES[i].y2 = yj2
+											xi_max = xj_max
+											if(m_x2_flag):	#if xj_max = xj1
+												gGCODES[i].y2 = yj1
+								elif(xj_min<=xi_min):
+									#print "b"
+									if(xj_max>=xi_max):
+										#print "ba"
+										#overlap
+										if(gGCODES[i].mod1 <= gGCODES[j].mod1):
+											gGCODES[i].gtype=0
+									elif(xj_max >= xi_min):	# xj_max < xi_max
+										if(gGCODES[i].mod1 == gGCODES[j].mod1):
+											#print "bb i=" +str(i) + ", j=" + str(j)
+											gGCODES[j].gtype=0
+											#print "x1=" +str(gGCODES[i].x1) +", y1=" +str(gGCODES[i].y1) +", x2=" +str(gGCODES[i].x2) +", y2=" +str(gGCODES[i].y2)
+											#gGCODES[i].x2 = xi_max
+											#gGCODES[i].y2 = gGCODES[i].y2
+											if(m_x1_flag):	#if xi_max = gGCODES[i].x1
+												gGCODES[i].x2 = xi_max
+												gGCODES[i].y2 = gGCODES[i].y1
+											gGCODES[i].x1 = xj_min
+											gGCODES[i].y1 = gGCODES[j].y1
+											xi_min = xj_min
+											if(m_x2_flag):	#if xi_min = xj2
+												gGCODES[i].y1 = gGCODES[j].y2
+											#print "x1=" +str(gGCODES[i].x1) +", y1=" +str(gGCODES[i].y1) +", x2=" +str(gGCODES[i].x2) +", y2=" +str(gGCODES[i].y2)
 
-			dxi=xi2-xi1
-			dyi=yi2-yi1
-			dxj=xj2-xj1
-			dyj=yj2-yj1
-			if(dxi!=0 and dxj!=0):
-				ai=dyi/dxi
-				bi=yi1-ai*xi1
-				aj=dyj/dxj
-				bj=yj1-aj*xj1
-				if(aj==ai and bj==bi):
-					if(xj_min>=xi_min and xj_max<=xi_max):
-						#overlap
-						gGCODES[j].gtype=5
-					elif(xj_min<=xi_min and xj_max>=xi_max):
-						#overlap
-						gGCODES[i].gtype=5
-			elif(dxi==0 and dxj==0 and xi1==xj1):
-				if(yj_min>=yi_min and yj_max<=yi_max):
-					#overlap
-					gGCODES[j].gtype=5
-				elif(yj_min<=yi_min and yj_max>=yi_max):
-					#overlap
-					gGCODES[i].gtype=5
-							
+					else:	#dxi==0
+						if(dxj==0 and gGCODES[i].x1==xj1):
+							if(yj_min>=yi_min):
+								if(yj_max<=yi_max):
+									if(gGCODES[i].mod1 >= gGCODES[j].mod1):
+										#overlap
+										gGCODES[j].gtype=0
+								elif(yi_max > yj_min):
+									if(gGCODES[i].mod1 == gGCODES[j].mod1):
+										gGCODES[j].gtype=0
+										#gGCODES[i].x1 = gGCODES[i].x1
+										gGCODES[i].y1 = yi_min
+										if(m_y1_flag):	#yi_min = gGCODES[i].y2
+											gGCODES[i].x1 = gGCODES[i].x2
+											#gGCODES[i].y1 = yi_min
+										gGCODES[i].x2 = gGCODES[j].x2
+										gGCODES[i].y2 = yj_max
+										if(m_y2_flag):
+											gGCODES[i].x2 = gGCODES[j].x1
+							elif(yj_min<=yi_min):
+								if(yj_max>=yi_max):
+									if(gGCODES[i].mod1 <= gGCODES[j].mod1):
+										#overlap
+										gGCODES[i].gtype=0
+								elif(yj_max > yi_min):
+									if(gGCODES[i].mod1 == gGCODES[j].mod1):
+										#gGCODES[i].x2 = GCODES[i].x2
+										gGCODES[i].y2 = yi_max
+										if(m_y1_flag):
+											gGCODES[i].x2 = gGCODES[i].x1
+											#gGCODES[i].y2 = yi_max
+										gGCODES[i].x1 = GCODES[j].x1
+										gGCODES[i].y1 = yj_min
+										if(m_y2_flag):
+											gGCODES[i].x1 = GCODES[j].x2
+											#gGCODES[i].y1 = yj_min
+			else:	#ti != tj
+				if(ti == 2):
+					if(tj == 3 or tj == 4):
+						#print "rect ti"
+						if(gGCODES[j].x1 == gGCODES[j].x2 and gGCODES[i].x1 == gGCODES[j].x1):	#Vertical
+							#print "ti check x"
+							if(gGCODES[i].mod1 == gGCODES[j].mod1):
+								#print "ti check x mod1"
+								#line = [gGCODES[i].x1,gGCODES[i].y1-gGCODES[i].mod2/2,gGCODES[i].x1,gGCODES[i].y1+gGCODES[i].mod2/2]
+								x1=gGCODES[i].x1
+								y1=gGCODES[i].y1-gGCODES[i].mod2/2
+								x2=gGCODES[i].x1
+								y2=gGCODES[i].y1+gGCODES[i].mod2/2
+								xa=gGCODES[j].x1
+								ya=gGCODES[j].y1
+								xb=gGCODES[j].x2
+								yb=gGCODES[j].y2
+								ovflag = check_overlap(x1,y1,x2,y2,xa,ya,xb,yb,1)
+								if(ovflag):	#Vertical 1-4	
+									if(ovflag == 1):
+										gGCODES[j].gtype=0
+									if(ovflag == 3):
+										gGCODES[i].gtype=0
+									print "ti overlap =" + str(ovflag)
+									#print line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									tx1,ty1,tx2,ty2=line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									if(tj == 4):	#Rect
+										print "Rect-Rect"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 4
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+									elif(tj == 3):
+										print "rect-cir"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 5
+										gGCODES[i].mod1 =gGCODES[j].mod1
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+										if(ovflag == 4):
+											gGCODES[i].x1 = tx2
+											gGCODES[i].y1 = ty2
+											gGCODES[i].x2 = tx1
+											gGCODES[i].y2 = ty1
+						if(gGCODES[j].y1 == gGCODES[j].y2 and gGCODES[i].y1 == gGCODES[j].y1):	#Horizontal
+							#print "ti check y"
+							if(gGCODES[i].mod2 == gGCODES[j].mod1):
+								#print "ti check y mod1"
+								#line = [gGCODES[i].x1-gGCODES[i].mod1/2,gGCODES[i].y1,gGCODES[i].x1+gGCODES[i].mod1/2,gGCODES[i].y1]
+								x1=gGCODES[i].x1-gGCODES[i].mod1/2
+								y1=gGCODES[i].y1
+								x2=gGCODES[i].x1+gGCODES[i].mod1/2
+								y2=gGCODES[i].y1
+								xa=gGCODES[j].x1
+								ya=gGCODES[j].y1
+								xb=gGCODES[j].x2
+								yb=gGCODES[j].y2
+								ovflag = check_overlap(x1,y1,x2,y2,xa,ya,xb,yb,0)
+								if(ovflag):	#Horizontal 5-8
+									if(ovflag == 5):
+										gGCODES[j].gtype=0
+									if(ovflag == 7):
+										gGCODES[i].gtype=0	
+									print "ti overlap =" + str(ovflag)
+									tx1,ty1,tx2,ty2=line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									
+									if(tj == 4):	#Rect
+										print "Rect-Rect"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 4
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+									elif(tj == 3):
+										print "rect-cir"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 5
+										gGCODES[i].mod1 =gGCODES[j].mod1
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+										if(ovflag == 8):
+											gGCODES[i].x1 = tx2
+											gGCODES[i].y1 = ty2
+											gGCODES[i].x2 = tx1
+											gGCODES[i].y2 = ty1
+				if(tj == 2):
+					if(ti == 3 or ti == 4):
+						#print "rect tj"
+						if(gGCODES[i].x1 == gGCODES[i].x2 and gGCODES[i].x1 == gGCODES[j].x1):	#Vertical
+							#print "ti check x"
+							if(gGCODES[i].mod1 == gGCODES[j].mod1):
+								#print "ti check x mod1"
+								#line = [gGCODES[i].x1,gGCODES[i].y1-gGCODES[i].mod2/2,gGCODES[i].x1,gGCODES[i].y1+gGCODES[i].mod2/2]
+								x1=gGCODES[j].x1
+								y1=gGCODES[j].y1-gGCODES[j].mod2/2
+								x2=gGCODES[j].x1
+								y2=gGCODES[j].y1+gGCODES[j].mod2/2
+								xa=gGCODES[i].x1
+								ya=gGCODES[i].y1
+								xb=gGCODES[i].x2
+								yb=gGCODES[i].y2
+								ovflag = check_overlap(x1,y1,x2,y2,xa,ya,xb,yb,1)
+								if(ovflag):	#Vertical 1-4	
+									if(ovflag == 1):
+										gGCODES[j].gtype=0
+									if(ovflag == 3):
+										gGCODES[i].gtype=0
+									print "tj overlap =" + str(ovflag)
+									#print line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									tx1,ty1,tx2,ty2=line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									if(tj == 4):	#Rect
+										print "Rect-Rect"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 4
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+									elif(tj == 3):
+										print "rect-cir"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 5
+										gGCODES[i].mod1 =gGCODES[j].mod1
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+										if(ovflag == 4):
+											gGCODES[i].x1 = tx2
+											gGCODES[i].y1 = ty2
+											gGCODES[i].x2 = tx1
+											gGCODES[i].y2 = ty1
+						if(gGCODES[i].y1 == gGCODES[i].y2 and gGCODES[i].y1 == gGCODES[j].y1):	#Horizontal
+							#print "ti check y"
+							if(gGCODES[i].mod1 == gGCODES[j].mod2):
+								#print "ti check y mod1"
+								#line = [gGCODES[i].x1-gGCODES[i].mod1/2,gGCODES[i].y1,gGCODES[i].x1+gGCODES[i].mod1/2,gGCODES[i].y1]
+								x1=gGCODES[j].x1-gGCODES[j].mod1/2
+								y1=gGCODES[j].y1
+								x2=gGCODES[j].x1+gGCODES[j].mod1/2
+								y2=gGCODES[j].y1
+								xa=gGCODES[i].x1
+								ya=gGCODES[i].y1
+								xb=gGCODES[i].x2
+								yb=gGCODES[i].y2
+								ovflag = check_overlap(x1,y1,x2,y2,xa,ya,xb,yb,0)
+								if(ovflag):	#Horizontal 5-8
+									if(ovflag == 5):
+										gGCODES[j].gtype=0
+									if(ovflag == 7):
+										gGCODES[i].gtype=0	
+									print "tj overlap =" + str(ovflag)
+									tx1,ty1,tx2,ty2=line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag)
+									
+									if(tj == 4):	#Rect
+										print "Rect-Rect"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 4
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+									elif(tj == 3):
+										print "rect-cir"
+										gGCODES[j].gtype = 0
+										gGCODES[i].gtype = 5
+										gGCODES[i].mod1 =gGCODES[j].mod1
+										gGCODES[i].x1 = tx1
+										gGCODES[i].y1 = ty1
+										gGCODES[i].x2 = tx2
+										gGCODES[i].y2 = ty2
+										if(ovflag == 8):
+											gGCODES[i].x1 = tx2
+											gGCODES[i].y1 = ty2
+											gGCODES[i].x2 = tx1
+											gGCODES[i].y2 = ty1
 			j += 1
+		#print "total x1=" +str(gGCODES[i].x1) +", y1=" +str(gGCODES[i].y1) +", x2=" +str(gGCODES[i].x2) +", y2=" +str(gGCODES[i].y2)
 		i +=1
+def line_joint(x1,y1,x2,y2,xa,ya,xb,yb,ovflag):
+	if(ovflag == 2):	#Vertical 2
+		ox1=x1
+		oy1=y1
+		oy2=yb
+		ox2=x2
+		if(y1>y2):
+			oy1=y2
+		if(ya>yb):
+			oy2=ya
+	elif(ovflag == 4):	#Vertical 4
+		ox1=x1
+		ox2=x2
+		oy1=ya
+		oy2=y2
+		if(y1>y2):
+			oy2=y1
+		if(ya>yb):
+			oy1=yb
+	elif(ovflag == 6):	#Horizontal
+		ox1=x1
+		ox2=xb
+		oy1=y1
+		oy2=y2
+		if(x1>x2):
+			ox1=x2
+		if(xa>xb):
+			ox2=xa
+	elif(ovflag == 8):	#Horizontal
+		ox1=xa
+		ox2=x2
+		oy1=y1
+		oy2=y2
+		if(x1>x2):
+			ox2=x1
+		if(xa>xb):
+			ox1=xb
+	else:
+		return (0,0,0,0)
+	return (ox1,oy1,ox2,oy2)
+def check_overlap(x1,y1,x2,y2,xa,ya,xb,yb,sw):
+	if(sw):	#Vertical
+		if(y2 < y1):	#x2 < x1
+			tmpy = y1
+			y1 = y2
+			y2 = tmpy
+		if(yb < ya):	#xb < xa
+			tmpy = ya
+			ya = yb
+			yb = tmpy
+		if(y1 <= ya and y2 >= ya):
+			if(y2 >= yb):
+				# line 2 is in line1
+				return 1
+			elif(y2 < yb):
+				return 2
+		elif(y1 <= yb and y2 >= yb):
+			return 4
+		elif(y1 > ya and y2 < yb):
+			return 3
+		else:
+			return 0
+	else:	#Horizontal
+		if(x2 < x1):	#x2 < x1
+			tmpx = x1
+			x1 = x2
+			x2 = tmpx
+		if(xb < xa):	#xb < xa
+			tmpx = xa
+			xa = xb
+			xb = tmpx
+		if(x1 <= xa and x2 >= xa):
+			if(x2 >= xb):
+				# line 2 is in line1
+				return 5
+			elif(x2 < xb):
+				return 6
+		elif(x1 <= xb and x2 >= xb):
+			return 8
+		elif(x1 > xa and x2 < xb):
+			return 7
+		else:
+			return 0
 
-def gerber2polygon4draw():
-	global gGCODES, TOOL_D
-	for gcode in gGCODES:
-		if(gcode.gtype == 5):
-			continue
-		x1=gcode.x1
-		y1=gcode.y1
-		x2=gcode.x2
-		y2=gcode.y2
-		mod1=gcode.mod1
-		mod2=gcode.mod2
-		if(gcode.gtype == 1):
-			polygon(circle_points(x1,y1,mod1/2,20))
-		elif(gcode.gtype == 2):
-			points = [x1-mod1/2,y1-mod2/2,x1-mod1/2,y1+mod2/2,x1+mod1/2,y1+mod2/2,x1+mod1/2,y1-mod2/2,x1-mod1/2,y1-mod2/2]
-			polygon(points)
-		elif(gcode.gtype == 3):
-			line2poly(x1,y1,x2,y2,mod1/2,1,8)
-		elif(gcode.gtype == 4):
-			line2poly(x1,y1,x2,y2,mod2/2,0,8)
 
 def gerber2polygon():
 	global gPOLYGONS,gGCODES, TOOL_D
 	gPOLYGONS = []	#initialize
 	for gcode in gGCODES:
-		if(gcode.gtype == 5):
+		if(gcode.gtype == 0):
 			continue
 		x1=gcode.x1
 		y1=gcode.y1
@@ -787,22 +832,43 @@ def gerber2polygon():
 		mod2=gcode.mod2 + float(TOOL_D)
 		if(gcode.gtype == 1):
 			#polygon(circle_points(x1,y1,mod1/2,20))
-			#polygon2(x1-mod1/2,x1+mod1/2,y1-mod1/2,y1+mod1/2,circle_points(x1,y1,mod1/2,20))
 			gPOLYGONS.append(POLYGON(x1-mod1/2,x1+mod1/2,y1-mod1/2,y1+mod1/2,circle_points(x1,y1,mod1/2,20),0))
 		elif(gcode.gtype == 2):
 			points = [x1-mod1/2,y1-mod2/2,x1-mod1/2,y1+mod2/2,x1+mod1/2,y1+mod2/2,x1+mod1/2,y1-mod2/2,x1-mod1/2,y1-mod2/2]
 			#polygon([x1-mod1/2,y1-mod2/2,x1-mod1/2,y1+mod2/2,x1+mod1/2,y1+mod2/2,x1+mod1/2,y1-mod2/2,x1-mod1/2,y1-mod2/2])
-			#polygon2(x1-mod1/2,x1+mod1/2,y1-mod2/2,y1+mod2/2,points)
 			gPOLYGONS.append(POLYGON(x1-mod1/2,x1+mod1/2,y1-mod2/2,y1+mod2/2,points,0))
 		elif(gcode.gtype == 3):
 			line2poly(x1,y1,x2,y2,mod1/2,1,8)
 		elif(gcode.gtype == 4):
 			line2poly(x1,y1,x2,y2,mod2/2,0,8)
+		elif(gcode.gtype == 5):
+			line2poly(x1,y1,x2,y2,mod1/2,2,8)
 
-def polygon2(x_min,x_max,y_min,y_max,points):
-	global HUGE, gPOLYGONS, gXMIN, gYMIN
-	gPOLYGONS.append(POLYGON(x_min,x_max,y_min,y_max,points,0))
-
+def line2poly(x1,y1,x2,y2,r,atype,ang_n):
+	points = []
+	deg90=pi/2.0
+	dx = x2-x1
+	dy = y2-y1
+	ang=atan2(dy,dx)
+	xa1=x1+r*cos(ang+deg90)
+	ya1=y1+r*sin(ang+deg90)
+	xa2=x1-r*cos(ang+deg90)
+	ya2=y1-r*sin(ang+deg90)
+	xb1=x2+r*cos(ang+deg90)
+	yb1=y2+r*sin(ang+deg90)
+	xb2=x2-r*cos(ang+deg90)
+	yb2=y2-r*sin(ang+deg90)
+	if(atype==1):
+		points = points + arc_points(x1,y1,r,ang+3*deg90,ang+deg90,ang_n)
+		points = points + arc_points(x2,y2,r,ang+deg90,ang-deg90,ang_n)
+		points = points + [xa2,ya2]
+	elif(atype==2):
+		points = points + [xa2,ya2,xa1,ya1]
+		points = points + arc_points(x2,y2,r,ang+deg90,ang-deg90,ang_n)
+		points = points + [xa2,ya2]
+	else:
+		points=(xa1,ya1,xb1,yb1,xb2,yb2,xa2,ya2,xa1,ya1)
+	polygon(points)
 
 def polygon(points):
 	global HUGE, gPOLYGONS, gXMIN, gYMIN
@@ -947,28 +1013,6 @@ def move(x,y):
 		#Goto X-Y position
 		gGCODE_DATA += out_data + "\n"
 
-def line2poly(x1,y1,x2,y2,r,atype,ang_n):
-	points = []
-	deg90=pi/2.0
-	dx = x2-x1
-	dy = y2-y1
-	ang=atan2(dy,dx)
-	xa1=x1+r*cos(ang+deg90)
-	ya1=y1+r*sin(ang+deg90)
-	xa2=x1-r*cos(ang+deg90)
-	ya2=y1-r*sin(ang+deg90)
-	xb1=x2+r*cos(ang+deg90)
-	yb1=y2+r*sin(ang+deg90)
-	xb2=x2-r*cos(ang+deg90)
-	yb2=y2-r*sin(ang+deg90)
-	if(atype):
-		points = points + arc_points(x1,y1,r,ang+3*deg90,ang+deg90,ang_n)
-		points = points + arc_points(x2,y2,r,ang+deg90,ang-deg90,ang_n)
-		points = points + [xa2,ya2]
-	else:
-		points=(xa1,ya1,xb1,yb1,xb2,yb2,xa2,ya2,xa1,ya1)
-	polygon(points)
-
 def arc_points(cx,cy,r,s_angle,e_angle,kaku):
 	points=[]
 	if(s_angle == e_angle):
@@ -992,19 +1036,25 @@ def calc_shift():
 	gYSHIFT = LOWER_Y - gYMIN
 	#print "x_shift=" + str(gXSHIFT) + "y_shift=" + str(gYSHIFT)
 
-def polygon2line(points):
-	global gLINES
+def polygon2line(points,sw):
+	global gLINES,gLINES2
 	i = 0
 	while i< len(points)-2:
-		gLINES.append(LINE(points[i],points[i+1],points[i+2],points[i+3],0,0))
+		if(sw):
+			gLINES2.append(LINE(points[i],points[i+1],points[i+2],points[i+3],0,0))
+		else:
+			gLINES.append(LINE(points[i],points[i+1],points[i+2],points[i+3],0,0))
 		i += 2
 
 def merge():
-	global gPOLYGONS, gLINES
-	check_duplication()
-	gerber2polygon()
+	global gPOLYGONS, gLINES,PRE_IN_FLAG,gLINES2
+	#check_duplication()
+	#gerber2polygon()
 	print "Start merge polygons"
+	t = datetime.now(); start = mktime( t.timetuple() ) + 1e-6*t.microsecond
+	print( "start: %f" % start )
 	for poly1 in gPOLYGONS:
+		PRE_IN_FLAG = -1
 		out_points=[]
 		if(poly1.delete):
 			continue
@@ -1013,7 +1063,7 @@ def merge():
 		y_max=poly1.y_max
 		y_min=poly1.y_min
 		start_line_id=len(gLINES)
-		polygon2line(poly1.points)
+		polygon2line(poly1.points,0)
 		end_line_id=len(gLINES)
 		for poly2 in gPOLYGONS:
 			if(poly2.delete):
@@ -1028,6 +1078,9 @@ def merge():
 				continue
 			if(y_max < ya_min or y_min > ya_max):
 				continue
+			start_line_id2=len(gLINES2)
+			polygon2line(poly2.points,1)
+			end_line_id2=len(gLINES2)
 			k = start_line_id
 			while k < end_line_id:
 				CrossAndIn(k,poly2.points)
@@ -1037,12 +1090,17 @@ def merge():
 	for poly3 in gPOLYGONS:
 		#del all polygons
 		poly3.delete = 1
+	t2 = datetime.now(); start2 = mktime( t2.timetuple() ) + 1e-6*t2.microsecond; result = start2 - start
+	print( "end: %f" % start2 )
+	print( "working in: %f" % result )
 	line_merge()
 	print "End merge polygons"
 
 def line_merge():
 	global gPOLYGONS, gLINES
 	print "   Start merge lines"
+	t = datetime.now(); start = mktime( t.timetuple() ) + 1e-6*t.microsecond
+	print( " merge linesstart: %f" % start )
 	margin = 0.0001
 	for line1 in gLINES:
 		if(line1.inside or line1.delete):
@@ -1060,7 +1118,6 @@ def line_merge():
 		#if(line1.y1 > line1.y2):
 			#y_min = line1.y2
 			#y_max = line1.y1
-		#polygon2(x_min,x_max,y_min,y_max,[line1.x1, line1.y1, line1.x2, line1.y2])
 		line1.delete = 1
 		for line2  in gLINES:
 			if(line2.inside or line2.delete):
@@ -1076,6 +1133,9 @@ def line_merge():
 					line2.delete = 1
 		gPOLYGONS.append(POLYGON(line1.x1, line1.x2, line1.y1, line1.y2,tmp_points,0))
 		#gPOLYGONS[-1].points=tmp_points
+	t2 = datetime.now(); start2 = mktime( t2.timetuple() ) + 1e-6*t2.microsecond; result = start2 - start
+	print( "end: %f" % start2 )
+	print( "working in: %f" % result )
 	merge_polygons()
 
 
@@ -1109,16 +1169,170 @@ def merge_polygons():
 				#print "xi=" + str(tmp_points1[0]) + "xj=" +  str(tmp_points2[len(tmp_points2)-2]) + "yi=" + str(tmp_points1[1]) + "yj=" +  str(tmp_points2[-1])			
 				#poly2.delete = 1
 		poly1.points = tmp_points1
+	#disp_test_points()
 
+def IsLineParallel(line1,line2):
+	global TINY
+	dx1 = line1.x2-line1.x1
+	dy1 = line1.y2-line1.y1
+	dx2 = line2.x2-line2.x1
+	dy2 = line2.y2-line2.y1
+	if(abs(dx1) < TINY):
+		if(abs(dx2) < TINY):
+			return 1
+		else:
+			return 0
+	else:
+		if(abs(dx2) < TINY):
+			return 0
+		else:
+			a1 = (dy1)/(dx1)
+			a2 = (dy2)/(dx2)
+			if(abs(a1-a2) < TINY):
+				return 1
+			else:
+				return 0
+def IsLineOverlap(x1,y1,x2,y2,xa,ya,xb,yb):
+	global TINY
+	#print "check overlap"
+	dx1 = x2-x1
+	dy1 = y2-y1
+	dx2 = xb-xa
+	dy2 = yb-ya
+	if(abs(dx1)  < TINY):
+		if(abs(dx2) < TINY):	#Vertical
+			if(abs(x1-xa) < TINY):
+				if(dy1 > 0):	#+
+					if(y1 <= ya and y2 >= ya):
+						return 1
+					if(y1 <= yb and y2 >= yb):
+						return 2
+				elif(dy1 < 0):	#-
+					if(y2 <= ya and y1 >= ya):
+						return 3
+					if(y2 <= yb and y1 >= yb):
+						return 4
+				return 0
+			else:
+				return 0
+		else:
+			return 0
+	else:
+		if(abs(dx2) < TINY):
+			return 0
+		else:
+			a1 = (dy1)/(dx1)
+			b1 = y1-a1*x1
+			a2 = (dy2)/(dx2)
+			b2 = ya-a2*xa
+			if(abs(a1-a2) < TINY):
+				#print "same angle " + str(a1 )+ ", b1=" + str(b1)+ ", b2=" + str(b2) + ", b2-b1=" + str(abs(b2-b1)) +", y1=" +str(y1) + ", ya=" + str(ya)
+				if(abs(b2-b1) < TINY):	#Horizontal
+					#print "same b " + str(b1)
+					if(dx1 > 0):	#+
+						if(x1 <= xa and x2 >= xa):
+							return 5
+						if(x1 <= xb and x2 >= xb):
+							return 6	#
+					elif(dx1 < 0):	#-
+						if(x2 <= xa and x1 >= xa):
+							return 7 #
+						if(x2 <= xb and x1 >= xb):
+							return 8
+				else:
+					return 0
+			else:
+				return 0
+	return 0
+def IsLineOverlap2(line1,line2):
+	global TINY
+	dx1 = line1.x2-line1.x1
+	dy1 = line1.y2-line1.y1
+	dx2 = line2.x2-line2.x1
+	dy2 = line2.y2-line2.y1
+	if(abs(dx1)  < TINY):
+		if(abs(dx2) < TINY):
+			if(abs(line1.x1-line2.x1) < TINY):
+				if(dy1 > 0):	#+
+					if(line1.y1 <= line2.y1 and line1.y2 >= line2.y1):
+						return 1
+					if(line1.y1 <= line2.y2 and line1.y2 >= line2.y2):
+						return 1
+				elif(dy1 < 0):	#-
+					if(line1.y2 <= line2.y1 and line1.y1 >= line2.y1):
+						return 1
+					if(line1.y2 <= line2.y2 and line1.y1 >= line2.y2):
+						return 1
+				return 0
+			else:
+				return 0
+		else:
+			return 0
+	else:
+		if(abs(dx2) < TINY):
+			return 0
+		else:
+			a1 = (dy1)/(dx1)
+			a2 = (dy2)/(dx2)
+			if(abs(a1-a2) < TINY):
+				if(dy1 > 0):	#+
+					if(line1.y1 <= line2.y1 and line1.y2 >= line2.y1):
+						return 1
+					if(line1.y1 <= line2.y2 and line1.y2 >= line2.y2):
+						return 1
+				elif(dy1 < 0):	#-
+					if(line1.y2 <= line2.y1 and line1.y1 >= line2.y1):
+						return 1
+					if(line1.y2 <= line2.y2 and line1.y1 >= line2.y2):
+						return 1
+				return 0
+			else:
+				return 0
+def GetLineDist(line1,line2):
+	global TINY
+	dx = line1.x2-line1.x1
+	dy = line1.y2-line1.y1
+	a = dx * dx + dy * dy
+	if(a < TINY):
+		dist1 = calc_dist(line1.x1,line1.y1,line2.x1,line2.y1)
+		dist2 = calc_dist(line1.x1,line1.y1,line2.x2,line2.y2)
+	else:
+		b1 = dx * (line1.x1-line2.x1) + dy * (line1.y1-line2.y1)
+		b2 = dx * (line1.x1-line2.x2) + dy * (line1.y1-line2.y2)
+		t1 =  - (b1 / a)
+		t2 =  - (b2 / a)
+		if(t1 < 0.0):
+			t1 = 0.0
+		if(t1 > 1.0):
+			t1 = 1.0
+		if(t2 < 0.0):
+			t2 = 0.0
+		if(t2 > 1.0):
+			t2 = 1.0
+		x1 = t1 * dx + line1.x1
+		y1 = t1 * dy + line1.y1
+		x2 = t2 * dx + line1.x2
+		y2 = t2 * dy + line1.y2
+		dist1 = calc_dist(x1,y1,line2.x1,line2.y1)
+		dist2 = calc_dist(x2,y2,line2.x2,line2.y2)
+
+		if(abs(dist1-dist2) < TINY):
+			return dist1
+		else:
+			if(dist1 >= dist2):
+				return dist1
+			else:
+				return dist2
 def CrossAndIn(line_id,spoints):
-	global gLINES, gCCOUNT1, gCCOUNT2
+	global gLINES, gCCOUNT1, gCCOUNT2,TEST_POINTS1,TEST_POINTS2
 	#check in or out
+	#print line_id
+	if(gLINES[line_id].inside):
+		return
 	xa = gLINES[line_id].x1
 	ya = gLINES[line_id].y1
 	xb = gLINES[line_id].x2
 	yb = gLINES[line_id].y2
-	if(gLINES[line_id].inside):
-		return
 	cross_count1 = 0
 	cross_count2 = 0
 	cross_points = []
@@ -1127,22 +1341,28 @@ def CrossAndIn(line_id,spoints):
 	cross_flag = 0
 	tmp_flag = 0
 	return_flag = 0
+	ovflag = 0
 	si = 0
 	while si< len(spoints)-2:
+		xp1=spoints[si]
+		yp1=spoints[si+1]
+		xp2=spoints[si+2]
+		yp2=spoints[si+3]
+		if(IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)):
+			ovflag = 1
+		(cross_flag,cross_x,cross_y)=find_cross_point(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+		cross_num+=cross_flag
+		if(cross_flag):
+			#print "cross"
+			cross_points.extend([cross_x,cross_y])
+			cross_nums.append(si)
+			#ovflag = IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+			#print ovflag
 		#reset flags
 		flagX1 = 0
 		flagX2 = 0
 		flagY1 = 0
 		flagY2 = 0
-		xp1=spoints[si]
-		yp1=spoints[si+1]
-		xp2=spoints[si+2]
-		yp2=spoints[si+3]
-		(cross_flag,cross_x,cross_y)=find_cross_point(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
-		cross_num+=cross_flag
-		if(cross_flag):
-			cross_points.extend([cross_x,cross_y])
-			cross_nums.append(si)
 		#Is Point A IN?
 		if(xa <= xp1):
 			flagX1 = 1
@@ -1168,6 +1388,8 @@ def CrossAndIn(line_id,spoints):
 						cross_count1 -= 1
 					else:
 						cross_count1 += 1
+
+
 		#Is Point B IN?
 		#reset flags
 		flagX1 = 0
@@ -1205,13 +1427,225 @@ def CrossAndIn(line_id,spoints):
 
 	if(cross_count1):#
 		in_flag1 = 1
+		#TEST_POINTS1.append([xa,ya])
+		#if(line_id > 9):
+			#TEST_POINTS1.append([xa,ya])
+		if(line_id == 1):
+			TEST_POINTS1.append([xa,ya])
+			TEST_POINTS1.append([xp1,yp1])
 	else:
 		in_flag1 = 0
+		if(line_id == 1):
+			TEST_POINTS1.append([xa,ya])
+			TEST_POINTS1.append([xp1,yp1])
+	if(cross_count2):#
+		in_flag2 = 1
+		if(line_id == 1):
+			TEST_POINTS2.append([xb,yb])
+			TEST_POINTS2.append([xp2,yp2])
+		#if(line_id <= 9):
+			#TEST_POINTS1.append([xb,yb])
+		#if(line_id > 9):
+			#TEST_POINTS2.append([xb,yb])
+	else:
+		in_flag2 = 0
+		if(line_id == 1):
+			TEST_POINTS2.append([xb,yb])
+			TEST_POINTS2.append([xp2,yp2])
+	PRE_IN_FLAG = in_flag2
+	#print "line=" +str(line_id) + ", Cross point num =" + str(cross_num)
+	#if(line_id == 16):
+		#print "Cross point num =" + str(cross_num)
+		#TEST_POINTS2.append([cross_points[0],cross_points[1]])
+	#if(cross_num > 0):
+		#ovflag = IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+		#if(ovflag):
+			#print "overlap " + str(line_id) + ", cross_num " + str(cross_num) + ", ovflag" + str(ovflag)
+
+	if(cross_num>1):
+		cross_points = sort_points_by_dist(xa,ya,cross_points)
+		#print calc_dist(gLINES[line_id].x1,gLINES[line_id].y1,cross_points[0],cross_points[1])
+		if(calc_dist(gLINES[line_id].x1,gLINES[line_id].y1,cross_points[0],cross_points[1])<=0.0):
+			#print "the cross point is same as p1 in_flag1=" + str(in_flag1) + "in_flag2=" + str(in_flag2)
+			if(in_flag1 != in_flag2):
+				gLINES[line_id].inside = 1
+			else:
+				gLINES[line_id].inside = in_flag1
+			tmp_flag = in_flag1
+			tmp_x=gLINES[line_id].x1
+			tmp_y=gLINES[line_id].y1
+		else:
+			gLINES[line_id].x2 = cross_points[0]
+			gLINES[line_id].y2 = cross_points[1]
+			gLINES[line_id].inside = in_flag1
+			tmp_x=cross_points[0]
+			tmp_y=cross_points[1]
+		if(in_flag1):
+			tmp_flag=0
+		else:
+			tmp_flag=1
+		i = 2
+		while i < len(cross_points)-2:
+			gLINES.append(LINE(tmp_x,tmp_y,cross_points[i],cross_points[i+1],tmp_flag,0))
+			if(in_flag1):
+				tmp_flag = 0
+			else:
+				tmp_flag = 1
+			tmp_x=cross_points[i]
+			tmp_y=cross_points[i+1]
+			i += 2
+		#end while
+		if(calc_dist(cross_points[len(cross_points)-2],cross_points[len(cross_points)-1],xb,yb)>0.0):
+			gLINES.append(LINE(cross_points[len(cross_points)-2],cross_points[len(cross_points)-1],xb,yb,in_flag2,0))
+	
+	elif(cross_num==1):
+		if(in_flag1 == in_flag2):
+			#in in
+			gLINES[line_id].inside=in_flag1
+			#print "in-in or Out-OUT:flag="+str(in_flag1)+ ", id=" +str(line_id)
+		else:
+			#in out
+			if(ovflag <=0):
+				gLINES[line_id].x2 = cross_points[0]
+				gLINES[line_id].y2 = cross_points[1]
+				gLINES[line_id].inside = in_flag1
+				gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,in_flag2,0))
+			else:
+				#overlap
+				gLINES[line_id].x2 = cross_points[0]
+				gLINES[line_id].y2 = cross_points[1]
+				gLINES[line_id].inside = 0
+				gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,0,0))
+				#print line_id
+				#if(in_flag2 == 1):
+					#print line_id
+					#gLINES.append(LINE(cross_points[0],cross_points[1]+0.1,xb,yb+0.1,in_flag1,0))
+	else:
+		if(in_flag1 != in_flag2):
+			gLINES[line_id].inside = in_flag1
+		else:
+			gLINES[line_id].inside = in_flag1
+
+	if(cross_num > 0):
+		return 1
+	elif(in_flag1 or in_flag2):
+		return 1
+	else:
+		return 0
+
+def CrossAndIn_test(line_id,spoints):
+	global gLINES, gCCOUNT1, gCCOUNT2,TEST_POINTS1,TEST_POINTS2,PRE_IN_FLAG
+	#check in or out
+	#print line_id
+	xa = gLINES[line_id].x1
+	ya = gLINES[line_id].y1
+	xb = gLINES[line_id].x2
+	yb = gLINES[line_id].y2
+	if(gLINES[line_id].inside):
+		return
+	cross_count1 = 0
+	cross_count2 = 0
+	cross_points = []
+	cross_nums = []
+	cross_num = 0
+	cross_flag = 0
+	tmp_flag = 0
+	return_flag = 0
+	si = 0
+	while si< len(spoints)-2:
+		xp1=spoints[si]
+		yp1=spoints[si+1]
+		xp2=spoints[si+2]
+		yp2=spoints[si+3]
+		(cross_flag,cross_x,cross_y)=find_cross_point(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+		cross_num+=cross_flag
+		if(cross_flag):
+			cross_points.extend([cross_x,cross_y])
+			cross_nums.append(si)
+		if(PRE_IN_FLAG == -1):
+			#reset flags
+			flagX1 = 0
+			flagX2 = 0
+			flagY1 = 0
+			flagY2 = 0
+			#Is Point A IN?
+			if(xa <= xp1):
+				flagX1 = 1
+			if(xa <= xp2):
+				flagX2 = 1
+			if(ya <= yp1):
+				flagY1 = 1
+			if(ya <= yp2):
+				flagY2 = 1
+
+			if(flagY1 != flagY2):
+				#Cross?
+				if(flagX1 == flagX2):
+					if(flagX1):
+						#Cross
+						if(flagY1):#
+							cross_count1 -=1
+						else:
+							cross_count1 += 1
+				elif(yp2 != yp1):#
+					if(xa <= (xp1+(xp2-xp1)*(ya-yp1)/(yp2-yp1))):#
+						if(flagY1):#
+							cross_count1 -= 1
+						else:
+							cross_count1 += 1
+			if(cross_count1):#
+				in_flag1 = 1
+				#TEST_POINTS1.append([xa,ya])
+			else:
+				in_flag1 = 0
+		else:
+			in_flag1 = PRE_IN_FLAG
+		#Is Point B IN?
+		#reset flags
+		flagX1 = 0
+		flagX2 = 0
+		flagY1 = 0
+		flagY2 = 0
+		#start check
+		if(xb <= xp1):
+			flagX1 = 1
+		if(xb <= xp2):
+			flagX2 = 1
+		if(yb <= yp1):
+			flagY1 = 1
+		if(yb <= yp2):
+			flagY2 = 1
+
+		if(flagY1 != flagY2):
+			#Cross?
+			if(flagX1 == flagX2):
+				if(flagX1):
+					#Cross
+					if(flagY1):#
+						cross_count2 -= 1
+					else:
+						cross_count2 += 1
+			elif(yp2 != yp1):#
+				if(xb <= (xp1+(xp2-xp1)*(yb-yp1)/(yp2-yp1))):#
+					if(flagY1):#
+						cross_count2 -= 1
+					else:
+						cross_count2 += 1
+
+		si += 2
+	#end while
+
+
 
 	if(cross_count2):#
 		in_flag2 = 1
+		if(line_id <= 8):
+			TEST_POINTS1.append([xb,yb])
+		if(line_id > 8):
+			TEST_POINTS2.append([xb,yb])
 	else:
 		in_flag2 = 0
+	PRE_IN_FLAG = in_flag2
 
 	if(cross_num>1):
 		cross_points = sort_points_by_dist(xa,ya,cross_points)
@@ -1242,12 +1676,16 @@ def CrossAndIn(line_id,spoints):
 		if(in_flag1 == in_flag2):
 			#in in
 			gLINES[line_id].inside=in_flag1
+			print "in-in or Out-OUT:flag="+str(in_flag1)+ ", id=" +str(line_id)
 		else:
 			#in out
 			gLINES[line_id].x2 = cross_points[0]
 			gLINES[line_id].y2 = cross_points[1]
 			gLINES[line_id].inside = in_flag1
 			gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,in_flag2,0))
+			if(in_flag2 == 1):
+				print line_id
+				gLINES.append(LINE(cross_points[0],cross_points[1]+0.1,xb,yb+0.1,in_flag1,0))
 	else:
 		if(in_flag1 != in_flag2):
 			gLINES[line_id].inside = in_flag1
@@ -1260,7 +1698,15 @@ def CrossAndIn(line_id,spoints):
 		return 1
 	else:
 		return 0
-
+def disp_test_points():
+	global TEST_POINTS1,TEST_POINTS2,gPOLYGONS
+	print "disp in point"
+	for point in TEST_POINTS1:
+		points = circle_points(point[0],point[1],0.01,20)
+		gPOLYGONS.append(POLYGON(0, 0, 0, 0,points,0))	
+	for point in TEST_POINTS2:
+		points = circle_points(point[0],point[1],0.03,20)
+		gPOLYGONS.append(POLYGON(0, 0, 0, 0,points,0))	
 def sort_points_by_dist(x,y,points):
 	return_points=[]
 	return_pos=[]
@@ -1331,163 +1777,6 @@ def find_cross_point(x1,y1,x2,y2,xa,ya,xb,yb):
 				if(ya_min-margin <= y and ya_max+margin >= y):
 					return (1,x,y)
 	return (0,0,0)
-
-#Drill 
-def read_Drill_file(drill_file):
-	global gDRILL_D, gDRILL_TYPE, gUNIT
-	f = open(drill_file,'r')
-	print "Read and Parse Drill data"
-	while 1:
-		drill = f.readline()
-		if not drill:
-			break
-		drill_data = re.search("T([\d]+)C([\d\.]+)",drill)
-		drill_num = re.search("T([\d]+)\s",drill)
-		if(drill_data):
-			gDRILL_TYPE[int(drill_data.group(1))] = drill_data.group(2)
-		if(drill_num):
-			gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * gUNIT
-		if (find(drill, "X") != -1 or find(drill, "Y") != -1):
-			parse_drill_xy(drill)
-	f.close()
-
-def parse_drill_xy(drill):
-	global gDRILLS,gDRILL_D, gUNIT
-	xx = re.search("X([\d\.-]+)\D",drill)
-	yy = re.search("Y([\d\.-]+)\D",drill)
-	if(xx):
-		x=float(xx.group(1)) * gUNIT
-	if(yy):
-		y=float(yy.group(1)) * gUNIT
-	gDRILLS.append(DRILL(x,y,gDRILL_D,0))
-
-def do_drill():
-	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D, gXSHIFT, gYSHIFT
-	drill_data = ""
-	drill_mergin = 0.02
-	calc_shift()
-	if(MERGE_DRILL_DATA):
-		gTMP_DRILL_X = gTMP_X
-		gTMP_DRILL_Y = gTMP_Y
-		gTMP_DRILL_Z = gTMP_Z
-	for drill in gDRILLS:
-		x = drill.x + gXSHIFT
-		y = drill.y + gYSHIFT
-		#print "drill.d=" + str(drill.d) + ", DRILL_D=" + str(DRILL_D)
-		#move to hole position
-		if(drill.d > DRILL_D + drill_mergin):
-			cir_r = drill.d/2 - DRILL_D/2
-			#drill_data += move_drill(drill.x-cir_r,drill.y)
-			drill_data += drill_hole(x,y,cir_r)
-		else:
-			drill_data += move_drill(x,y)
-			#Drill
-			if(DRILL_SPEED):
-				drill_data += "G01Z" + str(DRILL_DEPTH) + "F" + str(DRILL_SPEED) + "\n"
-			else:
-				drill_data += "G01Z" + str(DRILL_DEPTH) + "\n"
-		#Goto moving Z position
-		drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
-		gTMP_DRILL_Z = MOVE_HEIGHT
-	gDRILL_DATA += drill_data
-	if(MERGE_DRILL_DATA):
-		gGCODE_DATA += drill_data
-		gTMP_X = gTMP_DRILL_X 
-		gTMP_Y = gTMP_DRILL_Y
-		gTMP_Z = gTMP_DRILL_Z
-
-def move_drill(x,y):
-	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z
-	xy_data = "G00"
-	out_data = ""
-	#print out_data
-	gcode_tmp_flag = 0
-	if(x != gTMP_DRILL_X):
-		gTMP_DRILL_X = x
-		xy_data += "X" + str(x)
-		gcode_tmp_flag=1
-	if(y != float(gTMP_DRILL_Y)):
-		gTMP_DRILL_Y = y
-		xy_data += "Y" + str(y)
-		gcode_tmp_flag = 1
-	if(MOVE_HEIGHT!=gTMP_DRILL_Z):
-		gTMP_DRILL_Z = MOVE_HEIGHT
-		#Goto moving Z position
-		out_data = "G00Z" + str(MOVE_HEIGHT) + "\n"
-	if(gcode_tmp_flag):
-		#Goto initial X-Y position
-		return out_data + xy_data + "\n"
-	else:
-		return ""
-def drill_hole(cx,cy,r):
-	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
-	out_data = ""
-	gcode_tmp_flag = 0
-	z_step_n = int(float(DRILL_DEPTH)/float(Z_STEP)) + 1
-	z_step = float(DRILL_DEPTH)/z_step_n
-	#print "r=" + str(r)
-	if(MOVE_HEIGHT != gTMP_DRILL_Z):
-		gTMP_DRILL_Z = MOVE_HEIGHT
-		out_data += "G00Z" + str(gTMP_DRILL_Z) + "\n"
-	out_data += "G00X" + str(cx+r) + "Y" + str(cy) + "\n"
-	out_data += "G17\n"	#Set XY plane
-	points = circle_points(cx,cy,r,100)
-	i = 1
-	while i <= z_step_n:
-		gTMP_DRILL_Z = i*z_step
-		out_data += "G00Z" + str(gTMP_DRILL_Z) + "F" + str(DRILL_SPEED) + "\n"
-		j = 0
-		cricle_data = "G01"
-		while j< len(points):
-			px=points[j]
-			py=points[j+1]
-			if (px != gTMP_DRILL_X):
-				gTMP_DRILL_X=px
-				cricle_data +="X" + str(px)
-				gcode_tmp_flag = 1
-			if(py != gTMP_DRILL_Y):
-				gTMP_DRILL_Y=py
-				cricle_data +="Y" + str(py)
-				gcode_tmp_flag=1
-			if(gcode_tmp_flag):
-				#Goto initial X-Y position
-				cricle_data +="F" + str(XY_SPEED)
-				out_data += cricle_data + "\n"
-				cricle_data ="G01"
-			gcode_tmp_flag=0
-			j += 2
-		i += 1
-
-	gTMP_DRILL_X = cx+r
-	gTMP_DRILL_Y = cy
-	return out_data
-
-def drill_hole_test(cx,cy,r):
-	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
-	out_data = ""
-	gcode_tmp_flag = 0
-	z_step_n = int(DRILL_DEPTH/Z_STEP) + 1
-	z_step = DRILL_DEPTH/z_step_n
-	#print "r=" + str(r)
-	if(MOVE_HEIGHT != gTMP_DRILL_Z):
-		gTMP_DRILL_Z = MOVE_HEIGHT
-		out_data += "G00Z" + str(gTMP_DRILL_Z) + "\n"
-	out_data += "G00X" + str(cx-r) + "Y" + str(cy) + "\n"
-	out_data += "G17\n"	#Set XY plane
-	i = 1
-	while i <= z_step_n:
-		gTMP_DRILL_Z = i*z_step
-		out_data += "G00Z" + str(gTMP_DRILL_Z) + "F" + str(DRILL_SPEED) + "\n"
-		#Circle
-		out_data += "G02X" + str(cx+r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
-		out_data += "G02X" + str(cx-r) + "Y" + str(cy) + "R" + str(r) + "F" + str(XY_SPEED) + "\n"
-		#out_data += "G03X" + str(cx+r) + "Y" + str(cy) + "I" + str(cx) + "J" + str(cy) + "F" + str(XY_SPEED) + "\n"
-		#out_data += "G03X" + str(cx-r) + "Y" + str(cy) + "I" + str(cx) + "J" + str(cy) + "F" + str(XY_SPEED) + "\n"
-		i += 1
-
-	gTMP_DRILL_X = cx+r
-	gTMP_DRILL_Y = cy
-	return out_data
 
 def error_dialog(error_mgs,sw):
 	print error_mgs

@@ -31,12 +31,12 @@ MOVE_HEIGHT = 1.0
 XY_SPEED = 100
 Z_SPEED = 60
 DRILL_SPEED = 50	#Drill down speed
-DRILL_DEPTH = -1.2#Drill depth
+DRILL_DEPTH = -1.9#Drill depth
 CUT_DEPTH = -0.07	#pattern cutting depth
 TOOL_D = 0.2		#Tool diameter
 DRILL_D = 0.8		#Drill diameter
 EDGE_TOOL_D = 1.0		#Edge Tool diameter
-EDGE_DEPTH = -1.2 #edge depth
+EDGE_DEPTH = -1.9 #edge depth
 EDGE_SPEED = 80	#Edge cut speed
 EDGE_Z_SPEED = 60	#Edge down speed
 Z_STEP = -0.5
@@ -49,9 +49,11 @@ LOWER_Y = 5.0
 #For file
 OUT_INCH_FLAG = 0
 IN_INCH_FLAG = 1
+CUT_FLAG = 0
 CAD_UNIT = MIL/10
 DRILL_UNIT = MIL/10
 EDGE_UNIT = MIL/10
+CUT_OV = 0.1
 GERBER_EXT = '*.gtl'
 DRILL_EXT = '*.drl'
 EDGE_EXT = '*.gbr'
@@ -98,6 +100,7 @@ gPOLYGONS = []
 gLINES = []
 gEDGES = []
 gDRILLS = []
+gDRILL_LINES = []
 gGCODES = []
 gUNIT = 1
 
@@ -112,6 +115,7 @@ gGEDGE_FILE = ""
 #For Drawing 
 gPATTERNS = []
 gDRAWDRILL = []
+gDRAWDRILL_LINE = []
 gDRAWEDGE = []
 gDRAWCONTOUR = []
 gMAG = 1.0
@@ -169,6 +173,7 @@ class MainFrame(wx.Frame):
 		setupmenu =  wx.Menu()
 		menuMachine = setupmenu.Append(wx.ID_SETUP,"&Machine setup"," Setup Machine")
 		menuConv = setupmenu.Append(wx.ID_VIEW_LIST,"&Convert setup"," Convert setup")
+		#menuConv2 = setupmenu.Append(wx.ID_VIEW_LIST,"&Convert setup2"," Convert setup")
 		# Creating the menubar.
 		menuBar = wx.MenuBar()
 		menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
@@ -180,6 +185,7 @@ class MainFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnReload, menuReload)
 		self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
 		self.Bind(wx.EVT_MENU, self.OnConvSet, menuConv)
+		#self.Bind(wx.EVT_MENU, self.OnConvSet2, menuConv2)
 		self.Bind(wx.EVT_MENU, self.OnSetup, menuMachine)
 
 
@@ -211,15 +217,15 @@ class MainFrame(wx.Frame):
 		vbox.Add(panel1, 0, wx.BOTTOM | wx.TOP, 9)
 
 		#Draw data
-		panel2 = wx.Panel(panel, -1)
+		self.panel2 = wx.Panel(panel, -1)
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 
+		self.paint = Paint(self.panel2)
 
-		paint = Paint(panel2)
 
-		hbox1.Add(paint, 1, wx.EXPAND | wx.ALL, 2)
-		panel2.SetSizer(hbox1)
-		vbox.Add(panel2, 1,  wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
+		hbox1.Add(self.paint, 1, wx.EXPAND | wx.ALL, 2)
+		self.panel2.SetSizer(hbox1)
+		vbox.Add(self.panel2, 1,  wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
 
 		hbox5 = wx.BoxSizer(wx.HORIZONTAL)
 		btn0 = wx.Button(panel, -1, 'Generate contour', size=(150, 30))
@@ -243,6 +249,8 @@ class MainFrame(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.OnGenerate, btn0)
 		self.Bind(wx.EVT_BUTTON, self.OnConvert, btn1)
 
+		#Redraw
+		self.Bind(wx.EVT_PAINT, self.paint.OnPaint)
 	#functions
 	def OnGeber(self,e):
 		global gDISP_GERBER
@@ -275,8 +283,13 @@ class MainFrame(wx.Frame):
 		setup = ConvSetup(None, -1, 'Convert Setup')
 		setup.ShowModal()
 		setup.Destroy()
+	def OnConvSet2(self,e):
+		#print "view"
+		setup = ConvSetup2(None, -1, 'Convert Setup')
+		setup.ShowModal()
+		setup.Destroy()
 	def OnReload(self,e):
-		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gPOLYGONS, gLINES, gEDGES, gDRILLS, gGCODES
+		global gPATTERNS, gDRAWDRILL,gDRAWDRILL_LINE, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gPOLYGONS, gLINES, gEDGES, gDRILLS, gGCODES
 		#initialize
 		gPOLYGONS = []
 		gLINES = []
@@ -285,6 +298,7 @@ class MainFrame(wx.Frame):
 		gGCODES = []
 		gPATTERNS = []
 		gDRAWDRILL = []
+		gDRAWDRILL_LINE = []
 		gDRAWEDGE = []
 		gDRAWCONTOUR = []
 		self.Refresh(1)
@@ -300,14 +314,16 @@ class MainFrame(wx.Frame):
 		gerber2draw()
 
 	def OnOpen(self,e):
-		global gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
+		global gPATTERNS, gDRAWDRILL, gDRAWDRILL_LINE, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
 		setup = OpenFiles(None, -1, 'Open Files')
 		setup.ShowModal()
 		setup.Destroy()
 		if(len(gPATTERNS) > 0):
 			gDISP_GERBER = 1
 			self.cb1.SetValue(gDISP_GERBER)
-		if(len(gDRAWDRILL) > 0):
+		#print len(gDRAWDRILL)
+		#print len(gDRAWDRILL_LINE)
+		if(len(gDRAWDRILL) > 0 or len(gDRAWDRILL_LINE) > 0):
 			gDISP_DRILL = 1
 			self.cb2.SetValue(gDISP_DRILL)
 		if(len(gDRAWEDGE) >0 ):
@@ -352,12 +368,9 @@ class MainFrame(wx.Frame):
 			dlg.Destroy() # finally destroy it when finished.
 		self.Refresh(1)
 
-
-
 class Paint(wx.ScrolledWindow):
 	def __init__(self, parent):
 		global gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY
-
 		wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
 		self.SetBackgroundColour('WHITE')
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -386,14 +399,17 @@ class Paint(wx.ScrolledWindow):
 
 	#gerber
 	def OnPaint(self, e):
-		global gPOLYGONS, gPATTERNS, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR, gEDGES, gDRILLS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR, CONTOUR_COLOR, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, CENTER_X, CENTER_Y, gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY, gPAINTWINDOW_X_MAX, gPAINTWINDOW_Y_MAX, gPAINTWINDOW_X_MIN, gPAINTWINDOW_Y_MIN
+		global gPOLYGONS, gPATTERNS, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, gDRAWDRILL, gDRAWDRILL_LINE, gDRAWEDGE, gDRAWCONTOUR, gEDGES, gDRILLS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR, CONTOUR_COLOR, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, CENTER_X, CENTER_Y, gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY, gPAINTWINDOW_X_MAX, gPAINTWINDOW_Y_MAX, gPAINTWINDOW_X_MIN, gPAINTWINDOW_Y_MIN
 		dc = wx.PaintDC(self)
 		paint_size = self.GetSize()
+		#print paint_size
 		CENTER_X =int(paint_size.x/2)+1
 		CENTER_Y =int(paint_size.y/2)+1
 		veiw_start = self.CalcUnscrolledPosition(0,0)
+		#print "pos=" + str(veiw_start)
+		#print 'Mag' + str(gMAG) + ", x shift=" + str(gDRAW_XSHIFT-veiw_start[0]) + ", y shift=" + str(gDRAW_YSHIFT-veiw_start[1])
 		if(len(gPATTERNS) > 0 and gDISP_GERBER):
-			dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
+			#dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
 			for polygon in gPATTERNS:
 				points = []
 				for point in polygon.points:
@@ -401,15 +417,34 @@ class Paint(wx.ScrolledWindow):
 					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
 					points.append([x,y])
 				dc.SetPen(wx.Pen(GERBER_COLOR, 1, wx.SOLID))
-				dc.DrawPolygon(points)
-				#dc.DrawLines(points)
+				#dc.DrawPolygon(points)
+				dc.DrawLines(points)
+
 		if(len(gDRAWDRILL) > 0 and gDISP_DRILL):
 			for drill in gDRAWDRILL:
 				x = drill.x * gMAG + gDRAW_XSHIFT-veiw_start[0]
 				y = drill.y * gMAG + gDRAW_YSHIFT-veiw_start[1]
 				r = drill.d * gMAG/2
+				#print x
+				#print y
 				dc.SetPen(wx.Pen(DRILL_COLOR, 1, wx.DOT))
 				dc.DrawCircle(x, y, r)
+		#print "len:"
+		#print len(gDRAWDRILL_LINE)
+		if(len(gDRAWDRILL_LINE) > 0 and gDISP_DRILL):
+			#print "drill line"
+			for polygon in gDRAWDRILL_LINE:
+				points = []
+				for point in polygon.points:
+					#print "point"
+					#print point
+					x = point[0] * gMAG + gDRAW_XSHIFT-veiw_start[0]
+					y = point[1] * gMAG + gDRAW_YSHIFT-veiw_start[1]
+					points.append([x,y])
+				dc.SetPen(wx.Pen(DRILL_COLOR, 1, wx.DOT))
+				#print points
+				#dc.DrawPolygon(points)
+				dc.DrawLines(points)
 		if(len(gDRAWEDGE) > 0 and gDISP_EDGE):
 			for edge in gDRAWEDGE:
 				points = []
@@ -468,16 +503,7 @@ class Paint(wx.ScrolledWindow):
 		self.Refresh(1)
 	def OnDrag(self, event):
 		pos = event.GetPosition()
-		#print "Drag: pos=" + str(pos)
-		#self.Refresh(1)
-	#def OnScroll(self, event):
-	#	global gDRAW_XSHIFT, gDRAW_YSHIFT
-	#	pos = self.GetViewStart()
-	#	print "pos=" + str(pos)
-	#	gDRAW_XSHIFT -= pos[0]
-	#	gDRAW_YSHIFT -= pos[1]
-	#	print "X shif=" + str(gDRAW_XSHIFT) + ", Y shift=" + str(gDRAW_YSHIFT)
-		#self.Refresh(1)
+		print "Drag: pos=" + str(pos)
 	def OnMouseLeftDown(self, event):
 		global gMouseLeftDown
 		pos = event.GetPosition()
@@ -491,7 +517,7 @@ class Paint(wx.ScrolledWindow):
 		gMouseRightDown[0] = 1
 		gMouseRightDown[1] = pos.x
 		gMouseRightDown[2] = pos.y
-		#print "Right Down: pos=" + str(pos)
+		print "Right Down: pos=" + str(pos)
 	def OnMouseLeftUp(self, event):
 		global gMouseLeftDown, gMAG, gDRAW_XSHIFT, gDRAW_YSHIFT, CENTER_X, CENTER_Y
 		pos = event.GetPosition()
@@ -507,7 +533,7 @@ class Paint(wx.ScrolledWindow):
 				gMAG = float(size.x)/float(dx/pre_mag)
 			elif(dx < 0):
 				gMAG = -float(pre_mag)/float(dx)
-			#print "gmag=" + str(gMAG)
+			print "gmag=" + str(gMAG)
 			if(dy > 0):
 				if(gMAG > float(size.y)/float(dy/pre_mag)):
 					gMAG = float(size.y)/float(dy/pre_mag)
@@ -532,9 +558,11 @@ class Paint(wx.ScrolledWindow):
 				paint_window_y = gPAINTWINDOW_Y_MAX
 			elif(gPAINTWINDOW_Y_MIN > gPAINTWINDOW_Y):
 				paint_window_y = gPAINTWINDOW_Y_MIN
+			#print "window x=" + str(paint_window_x) + ", window y=" + str(paint_window_y)
 			self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY));
 
 			self.Refresh(1)
+			#print "Left UP: pos=" + str(pos) + ", dx=" + str(dx) + ", dy=" + str(dy) + ", cx=" + str(cx) + ", cy=" + str(cy) + ", mag=" + str(gMAG)
 	def OnMouseRightUp(self, event):
 		global gMouseRightDown, gMAG
 		pos = event.GetPosition()
@@ -545,6 +573,7 @@ class Paint(wx.ScrolledWindow):
 			dist = sqrt(dx*dx + dy*dy)/gMAG
 			#print dist
 			cdc = wx.ClientDC(self)
+			#cdc.BeginDrawing()
 			cdc.DrawText(str(dist),pos.x,pos.y)
 			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
 			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
@@ -555,13 +584,25 @@ class Paint(wx.ScrolledWindow):
 	def OnMouseMove(self, event):
 		global dc
 		pos = event.GetPosition()
+		cdc = wx.ClientDC(self)
+		#x = 0
+		#y = 0
+		#dx = 0
+		#dy = 0
 		if gMouseRightDown[0]:
 			self.Refresh(1)
-			cdc = wx.ClientDC(self)
+			#cdc = wx.ClientDC(self)
+			#cdc.BeginDrawing()
 			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
 			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
 		if gMouseLeftDown[0]:
 			self.Refresh(1)
+			#cdc.Dispose() #NG
+			#cdc.Clear()	#NG
+
+			#cdc.SetBrush(wx.Brush(ZOOM_COLOR,wx.TRANSPARENT)) #NG
+			#cdc.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.TRANSPARENT)) #NG
+			#cdc.DrawRectangle(x,y,dx,dy) #NG
 			dx = pos.x - gMouseLeftDown[1]
 			dy = pos.y - gMouseLeftDown[2]
 			x = gMouseLeftDown[1]
@@ -572,7 +613,8 @@ class Paint(wx.ScrolledWindow):
 			if(dy < 0 ):
 				dy = -1 * dy
 				y = pos.y
-			cdc = wx.ClientDC(self)
+			#cdc = wx.ClientDC(self)
+			#cdc.BeginDrawing()
 			cdc.SetBrush(wx.Brush(ZOOM_COLOR,wx.TRANSPARENT))
 			cdc.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.SOLID))
 			cdc.DrawRectangle(x,y,dx,dy)
@@ -680,7 +722,7 @@ class OpenFiles(wx.Dialog):
 		sizer.Add(button6, (11, 4), (1, 1),  wx.LEFT | wx.BOTTOM | wx.RIGHT, 10)
 
 		sizer.AddGrowableCol(2)
-        
+
 		panel.SetSizer(sizer)
 		sizer.Fit(self)
 		# Events.
@@ -745,7 +787,7 @@ class OpenFiles(wx.Dialog):
 	def OnGcodeOpen(self,e):
 		global GCODE_EXT
 		""" Open a file"""
-		dlg = wx.FileDialog(self, "Choose a output G-code file", self.dirname, "", GCODE_EXT, wx.OPEN)
+		dlg = wx.FileDialog(self, "Choose a output G-code file", self.dirname, "", GCODE_EXT, wx.SAVE)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
@@ -755,7 +797,7 @@ class OpenFiles(wx.Dialog):
 	def OnGDrillOpen(self,e):
 		global GDRILL_EXT
 		""" Open a file"""
-		dlg = wx.FileDialog(self, "Choose a output G-code Drill file", self.dirname, "", GDRILL_EXT, wx.OPEN)
+		dlg = wx.FileDialog(self, "Choose a output G-code Drill file", self.dirname, "", GDRILL_EXT, wx.SAVE)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
@@ -765,7 +807,7 @@ class OpenFiles(wx.Dialog):
 	def OnGEdgeOpen(self,e):
 		global GEDGE_EXT
 		""" Open a file"""
-		dlg = wx.FileDialog(self, "Choose a output G-code Edge file", self.dirname, "", GEDGE_EXT, wx.OPEN)
+		dlg = wx.FileDialog(self, "Choose a output G-code Edge file", self.dirname, "", GEDGE_EXT, wx.SAVE)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
@@ -774,10 +816,11 @@ class OpenFiles(wx.Dialog):
 
 
 	def OnOK(self,e):
-		global DRILL_DEPTH, CUT_DEPTH, gGERBER_FILE, gDRILL_FILE, gEDGE_FILE, gGCODE_FILE, gGDRILL_FILE, gGEDGE_FILE, gPATTERNS, gDRAWDRILL, gDRAWEDGE, gDRAWCONTOUR
+		global DRILL_DEPTH, CUT_DEPTH, gGERBER_FILE, gDRILL_FILE, gEDGE_FILE, gGCODE_FILE, gGDRILL_FILE, gGEDGE_FILE, gPATTERNS, gDRAWDRILL,gDRAWDRILL_LINE, gDRAWEDGE, gDRAWCONTOUR
 		#initialize
 		gPATTERNS = []
 		gDRAWDRILL = []
+		gDRAWDRILL_LINE = []
 		gDRAWEDGE = []
 		gDRAWCONTOUR = []
 		set_unit()
@@ -933,7 +976,7 @@ class MachineSetup(wx.Dialog):
 		button2 = wx.Button(panel, -1, 'Close', size=(-1, 30))
 		sizer.Add(button2, (17, 2), (1, 1),  wx.LEFT | wx.BOTTOM | wx.RIGHT, 10)
 		sizer.AddGrowableCol(2)
-        
+
 		panel.SetSizer(sizer)
 		sizer.Fit(self)
 		#Event
@@ -947,13 +990,8 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
-		#IN_INCH_FLAG = int(self.rb1.GetSelection())
-		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
-		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
-		#LEFT_X = float(self.leftx.GetValue())
-		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -964,7 +1002,6 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
-		#CAD_UNIT = float(self.cadunit.GetValue())
 		#show_all_values()
 		self.Close(True)  # Close the frame.
 	def OnClose(self,e):
@@ -975,13 +1012,8 @@ class MachineSetup(wx.Dialog):
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
 		MOVE_HEIGHT = float(self.moveh.GetValue())
-		#IN_INCH_FLAG = int(self.rb1.GetSelection())
-		#OUT_INCH_FLAG = int(self.rb2.GetSelection())
-		#MCODE_FLAG = int(self.cb1.IsChecked())
 		XY_SPEED = int(self.xyspeed.GetValue())
 		Z_SPEED = int(self.zspeed.GetValue())
-		#LEFT_X = float(self.leftx.GetValue())
-		#LOWER_Y = float(self.lowy.GetValue())
 		DRILL_SPEED = int(self.drillspeed.GetValue())
 		DRILL_DEPTH = float(self.drilldep.GetValue())
 		CUT_DEPTH = float(self.cutdep.GetValue())
@@ -992,12 +1024,11 @@ class MachineSetup(wx.Dialog):
 		EDGE_SPEED = int(self.edgespeed.GetValue())
 		EDGE_Z_SPEED = int(self.edgezspeed.GetValue())
 		Z_STEP = float(self.zstep.GetValue())
-		#CAD_UNIT = float(self.cadunit.GetValue())
 		save_config()
 		self.Close(True)  # Close the frame.
 class ConvSetup(wx.Dialog):
 	def __init__(self, parent, id, title):
-		global gCOLORS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, OUT_INCH_FLAG, IN_INCH_FLAG,CAD_UNIT, DRILL_UNIT, EDGE_UNIT 
+		global gCOLORS, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, OUT_INCH_FLAG, IN_INCH_FLAG,CAD_UNIT, DRILL_UNIT, EDGE_UNIT, CUT_FLAG, CUT_OV
 		wx.Dialog.__init__(self, parent, id, title, size=(250, 210))
 
 		panel = wx.Panel(self, -1)
@@ -1096,30 +1127,40 @@ class ConvSetup(wx.Dialog):
 		self.edgeunit.SetValue(str(EDGE_UNIT))
 		sizer.Add(self.edgeunit, (15, 1), (1, 3), wx.TOP | wx.EXPAND, 5)
 
+		radioList_cut = ['line only', 'all']
+		self.rb_cut = wx.RadioBox(panel, label="Scrape ", choices=radioList_cut, majorDimension=3, style=wx.RA_SPECIFY_COLS)
+		self.rb_cut.SetSelection(int(CUT_FLAG))
+		sizer.Add(self.rb_cut, (16, 0), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
+
+		text_cut = wx.StaticText(panel, -1, 'scrape overlap')
+		sizer.Add(text_cut, (16, 1), flag= wx.LEFT | wx.TOP, border=10)
+		self.cut_ov = wx.TextCtrl(panel, -1)
+		self.cut_ov.SetValue(str(CUT_OV))
+		sizer.Add(self.cut_ov, (16, 2), (1, 1), wx.TOP | wx.EXPAND, 5)
 
 		radioList = ['mm', 'inch']
 		self.rb1 = wx.RadioBox(panel, label="unit of Input file", choices=radioList, majorDimension=3, style=wx.RA_SPECIFY_COLS)
 		self.rb1.SetSelection(int(IN_INCH_FLAG))
-		sizer.Add(self.rb1, (16, 0), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
+		sizer.Add(self.rb1, (17, 0), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
 
 		self.rb2 = wx.RadioBox(panel, label="unit of Output file", choices=radioList, majorDimension=3, style=wx.RA_SPECIFY_COLS)
 		self.rb2.SetSelection(int(OUT_INCH_FLAG))
-		sizer.Add(self.rb2, (16, 1), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
+		sizer.Add(self.rb2, (17, 1), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
 
 		self.cb1 = wx.CheckBox(panel, -1, 'Enable M code', (10, 10))
 		self.cb1.SetValue(int(MCODE_FLAG))
-		sizer.Add(self.cb1, (16, 2), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
+		sizer.Add(self.cb1, (17, 2), (1, 1), wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT , 10)
 
 		button0 = wx.Button(panel, -1, 'Save to config file', size=(-1, 30))
-		sizer.Add(button0, (17, 0), (1, 1),  wx.LEFT, 10)
+		sizer.Add(button0, (18, 0), (1, 1),  wx.LEFT, 10)
 
 		button1 = wx.Button(panel, -1, 'Temporally Apply', size=(-1, 30))
-		sizer.Add(button1, (17, 1), (1, 1),  wx.LEFT, 10)
+		sizer.Add(button1, (18, 1), (1, 1),  wx.LEFT, 10)
 
 		button2 = wx.Button(panel, -1, 'Close', size=(-1, 30))
-		sizer.Add(button2, (17, 2), (1, 1),  wx.LEFT | wx.BOTTOM | wx.RIGHT, 10)
+		sizer.Add(button2, (18, 2), (1, 1),  wx.LEFT | wx.BOTTOM | wx.RIGHT, 10)
 		sizer.AddGrowableCol(2)
-        
+
 		panel.SetSizer(sizer)
 		sizer.Fit(self)
 		#Event
@@ -1128,7 +1169,7 @@ class ConvSetup(wx.Dialog):
 		self.Bind(wx.EVT_BUTTON, self.OnClose, button2)
 
 	def OnApply(self,e):
-		global OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, LEFT_X, LOWER_Y, CAD_UNIT, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT 
+		global OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, LEFT_X, LOWER_Y, CAD_UNIT, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT, CUT_FLAG, CUT_OV
 		IN_INCH_FLAG = int(self.rb1.GetSelection())
 		OUT_INCH_FLAG = int(self.rb2.GetSelection())
 		MCODE_FLAG = int(self.cb1.IsChecked())
@@ -1147,12 +1188,14 @@ class ConvSetup(wx.Dialog):
 		GEDGE_EXT = str(self.gedge_ext.GetValue())
 		DRILL_UNIT = float(self.drillunit.GetValue())
 		EDGE_UNIT  = float(self.edgeunit.GetValue())
+		CUT_FLAG = int(self.rb_cut.GetSelection())
+		CUT_OV  = float(self.cut_ov.GetValue())
 		#show_all_values()
 		self.Close(True)  # Close the frame.
 	def OnClose(self,e):
 		self.Close(True)  # Close the frame.
 	def OnSave(self,e):
-		global OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, LEFT_X, LOWER_Y, CAD_UNIT, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT 
+		global OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, LEFT_X, LOWER_Y, CAD_UNIT, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT, CUT_FLAG, CUT_OV
 		IN_INCH_FLAG = int(self.rb1.GetSelection())
 		OUT_INCH_FLAG = int(self.rb2.GetSelection())
 		MCODE_FLAG = int(self.cb1.IsChecked())
@@ -1171,8 +1214,38 @@ class ConvSetup(wx.Dialog):
 		GEDGE_EXT = str(self.gedge_ext.GetValue())
 		DRILL_UNIT = float(self.drillunit.GetValue())
 		EDGE_UNIT  = float(self.edgeunit.GetValue())
+		CUT_FLAG = int(self.rb_cut.GetSelection())
+		CUT_OV  = float(self.cut_ov.GetValue())
 		save_config()
 		self.Close(True)  # Close the frame.
+
+class ConvSetup2(wx.Dialog):
+	def __init__(self, parent, id, title):
+		global CONFIG_FILE
+		self.cfg = wx.Config(CONFIG_FILE)
+		if self.cfg.Exists('width'):
+			w, h = self.cfg.ReadInt('width'), self.cfg.ReadInt('height')
+		else:
+			(w, h) = (250, 250)
+		wx.Dialog.__init__(self, parent, id, title, size=(w, h))
+
+		wx.StaticText(self, -1, 'Width:', (20, 20))
+		wx.StaticText(self, -1, 'Height:', (20, 70))
+		self.sc1 = wx.SpinCtrl(self, -1, str(w), (80, 15), (60, -1), min=200, max=500)
+		self.sc2 = wx.SpinCtrl(self, -1, str(h), (80, 65), (60, -1), min=200, max=500)
+		wx.Button(self, 1, 'Save', (20, 120))
+
+		self.Bind(wx.EVT_BUTTON, self.OnSave, id=1)
+		#self.statusbar = self.CreateStatusBar()
+		self.Centre()
+		self.Show(True)
+
+	def OnSave(self, event):
+		self.cfg.WriteInt("width", self.sc1.GetValue())
+		self.cfg.WriteInt("height", self.sc2.GetValue())
+		self.statusbar.SetStatusText('Configuration saved, %s ' % wx.Now())
+
+
 #Set Class
 class DRAWPOLY:
 	def __init__(self, points, color ,delete):
@@ -1205,6 +1278,15 @@ class DRILL:
 		self.d = d
 		self.delete = delete
 
+class DRILL_LINE:
+	def __init__(self, x1, y1, x2, y2, d, delete):
+		self.x1 = x1
+		self.y1 = y1
+		self.x2 = x2
+		self.y2 = y2
+		self.d = d
+		self.delete = delete
+
 class D_DATA:
 	def __init__(self, atype, mod1, mod2):
 		self.atype = atype
@@ -1228,7 +1310,7 @@ def main():
 	app.MainLoop()
 
 def gerber2draw():
-	global gPOLYGONS, gDRILLS, gEDGES, gPATTERNS, CENTER_X, CENTER_Y, gDRAWDRILL, gDRAWEDGE
+	global gPOLYGONS, gDRILLS, gDRILL_LINES, gEDGES, gPATTERNS, CENTER_X, CENTER_Y, gDRAWDRILL, gDRAWEDGE
 	for polygon in gPOLYGONS:
 		if (polygon.delete):
 			continue
@@ -1247,6 +1329,24 @@ def gerber2draw():
 		y = -drill.y
 		d = drill.d
 		gDRAWDRILL.append(DRILL(x,y,d,0))
+	for drill_l in gDRILL_LINES:
+		x1 = drill_l.x1
+		y1 = -drill_l.y1
+		x2 = drill_l.x2
+		y2 = -drill_l.y2
+		d = drill_l.d
+		dpoints = draw_drill_line(x1,y1,x2,y2,d)
+		i = 0
+		points = []
+		while i < len(dpoints)-1:
+			#x = polygon.points[i] + CENTER_X
+			#y = -polygon.points[i + 1] + CENTER_Y
+			x = dpoints[i]
+			y = dpoints[i + 1]
+			points.append([x,y])
+			i += 2
+		#print points
+		gDRAWDRILL_LINE.append(DRAWPOLY(points,"",0))
 	for polygon in gEDGES:
 		i = 0
 		points = []
@@ -1284,7 +1384,7 @@ def set_unit():
 	else:
 		gUNIT = 1.0
 def save_config():
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT 
+	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT, CUT_FLAG, CUT_OV 
 
 	config_data =""
 	config_data += "INI_X=" + str(INI_X) + "\n"
@@ -1293,6 +1393,8 @@ def save_config():
 	config_data += "MOVE_HEIGHT=" + str(MOVE_HEIGHT) + "\n"
 	config_data += "IN_INCH_FLAG=" + str(IN_INCH_FLAG) + "\n"
 	config_data += "OUT_INCH_FLAG=" + str(OUT_INCH_FLAG) + "\n"
+	config_data += "CUT_FLAG=" + str(CUT_FLAG) + "\n"
+	config_data += "CUT_OV=" + str(CUT_OV ) + "\n"
 	config_data += "MCODE_FLAG=" + str(MCODE_FLAG) + "\n"
 	config_data += "XY_SPEED=" + str(XY_SPEED) + "\n"
 	config_data += "Z_SPEED=" + str(Z_SPEED) + "\n"
@@ -1326,7 +1428,7 @@ def save_config():
 	out.write(config_data)
 	out.close()
 def read_config():
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT 
+	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, MERGE_DRILL_DATA, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, DRILL_UNIT, EDGE_UNIT, CUT_FLAG, CUT_OV
 	try:
 		f = open(CONFIG_FILE,'r')
 	except IOError, (errno, strerror):
@@ -1350,6 +1452,10 @@ def read_config():
 					OUT_INCH_FLAG = int(cfg.group(2))
 				if(cfg.group(1)=="IN_INCH_FLAG"):
 					IN_INCH_FLAG = int(cfg.group(2))
+				if(cfg.group(1)=="CUT_FLAG"):
+					CUT_FLAG = int(cfg.group(2))
+				if(cfg.group(1)=="CUT_OV"):
+					CUT_OV = float(cfg.group(2))
 				if(cfg.group(1)=="MCODE_FLAG"):
 					MCODE_FLAG = int(cfg.group(2))
 				if(cfg.group(1)=="XY_SPEED"):
@@ -1437,6 +1543,7 @@ def readEdgeFile(edge_file):
 			if (dd):
 				if(dd.group(1) == "1" or dd.group(1) == "01"):
 					gEDGES.append(POLYGON(0, 0, 0, 0, [pre_x,pre_y,x,y], 0))
+					#gEDGES.append(LINE(pre_x,pre_y,x,y,0,0))
 				elif(dd.group(1) == "2" or dd.group(1) == "02"):
 					pre_x = x
 					pre_y = y
@@ -1493,6 +1600,9 @@ def edge2gcode():
 			points = edge.points
 			if(len(points) % 2):
 				error_dialog("Error:Number of points is illegal ",0)
+				#print "Number of points is illegal "
+			#print "x=" + str(gTMP_EDGE_X) + ", y=" + str(gTMP_EDGE_Y)
+			#print "x=" + str(float(points[0])+float(gXSHIFT)) + ", y=" + str(float(points[1])+float(gYSHIFT))
 			#move to Start position
 			gEDGE_DATA += move_edge(float(points[0])+float(gXSHIFT),float(points[1])+float(gYSHIFT))
 			#move to cuting heght
@@ -1578,7 +1688,7 @@ def get_date():
 def read_Gerber(filename):
 	global IN_INCH_FLAG
 	f = open(filename,'r')
-	#print "Parse Gerber data"
+	print "Parse Gerber data"
 	while 1:
 		gerber = f.readline()
 		if not gerber:
@@ -1595,9 +1705,12 @@ def read_Gerber(filename):
 			parse_g(gerber)
 		if (find(gerber, "D") == 0):
 			parse_d(gerber)
+		#if (find(gerber, "X") != -1 or find(gerber, "Y") != -1):
 		if (find(gerber, "X") == 0):
 			parse_xy(gerber)
 	f.close()
+	#check_duplication()
+	#gerber2polygon()
 	gerber2polygon4draw()
 
 def parse_add(gerber):
@@ -1670,9 +1783,12 @@ def parse_data(x,y,d):
 		#Flash
 		if( gDCODE[int(gFIG_NUM)].atype == "C"):
 			#Circle
+			#polygon(circle_points(x,y,mod1/2,20))
 			gGCODES.append(GCODE(x,y,0,0,1,mod1,0))
 		elif(gDCODE[int(gFIG_NUM)].atype ==  "R"):
 			#Rect
+			#points = [x-mod1/2,y-mod2/2,x-mod1/2,y+mod2/2,x+mod1/2,y+mod2/2,x+mod1/2,y-mod2/2,x-mod1/2,y-mod2/2]
+			#polygon(points)
 			gGCODES.append(GCODE(x,y,0,0,2,mod1,mod2))
 	elif(d == "02" or d == "2"):
 		#move  w light off
@@ -1692,7 +1808,7 @@ def parse_data(x,y,d):
 
 def check_duplication():
 	global gGCODES
-	#print "Check overlapping lines ..."
+	print "Check overlapping lines ..."
 	i = 0
 	while i< len(gGCODES)-1:
 		if(gGCODES[i].gtype == 5):
@@ -1733,6 +1849,10 @@ def check_duplication():
 			if(yj1>yj2):
 				yj_min=yj2
 				yj_max=yj1
+			#if(xj_min>=xi_max or xj_max<=xi_min):
+					#continue
+			#if((xj_min>=xi_min and xj_max>=xi_max) or (xj_min<=xi_min and xj_max<=xi_max)):
+					#continue
 			
 			if(ti == tj):	#same type
 				dxi=xi2-xi1
@@ -1761,6 +1881,30 @@ def check_duplication():
 							#overlap
 							gGCODES[i].gtype=5
 							
+			j += 1
+		i +=1
+
+def check_duplication_old():
+	global gGCODES
+	i = 0
+	while i< len(gGCODES)-1:
+		xi1=gGCODES[i].x1
+		yi1=gGCODES[i].y1
+		xi2=gGCODES[i].x2
+		yi2=gGCODES[i].y2
+		ti=gGCODES[i].gtype
+		j = i + 1
+		while j< len(gGCODES):
+			xj1=gGCODES[j].x1
+			yj1=gGCODES[j].y1
+			xj2=gGCODES[j].x2
+			yj2=gGCODES[j].y2
+			tj=gGCODES[j].gtype
+			if((xi1 == xj1 and yi1 == yj1 and xi2 == xj2 and yi2 == yj2) or (xi1 == xj2 and yi1 == yj2 and xi2 == xj1 and yi2 == yj1)):
+				#same line
+				if(ti == tj):
+					#same line, same type
+					gGCODES[j].gtype=5
 			j += 1
 		i +=1
 
@@ -1894,7 +2038,7 @@ def end(out_file_name,out_drill_file,out_edge_file):
 
 def polygon2gcode(height,xy_speed,z_speed):
 	global gPOLYGONS
-	#print "Convert to G-code"
+	print "Convert to G-code"
 	for poly in gPOLYGONS:
 		if (poly.delete):
 			continue
@@ -1995,6 +2139,7 @@ def calc_shift():
 	global gXSHIFT, gYSHIFT, gXMIN, gYMIN, LEFT_X, LOWER_Y
 	gXSHIFT = LEFT_X - gXMIN
 	gYSHIFT = LOWER_Y - gYMIN
+	#print "x_shift=" + str(gXSHIFT) + "y_shift=" + str(gYSHIFT)
 
 def polygon2line(points):
 	global gLINES
@@ -2006,10 +2151,10 @@ def polygon2line(points):
 def merge():
 	global gPOLYGONS, gLINES
 	gerber2polygon()
-	#print "Start merge polygons"
+	print "Start merge polygons"
 	for poly1 in gPOLYGONS:
-		out_points=[]
-		merged=0
+		#out_points=[]
+		#merged=0
 		if(poly1.delete):
 			continue
 		x_max=poly1.x_max
@@ -2043,11 +2188,11 @@ def merge():
 		poly3.delete = 1
 
 	#line_merge()
-	#print "End merge polygons"
+	print "End merge polygons"
 
 def line_merge():
 	global gPOLYGONS, gLINES
-	#print "   Start merge lines"
+	print "   Start merge lines"
 	#tmp_points = []
 	margin = 0.0001
 	for line1 in gLINES:
@@ -2075,7 +2220,9 @@ def line_merge():
 
 def merge_polygons():
 	global gPOLYGONS
-	#print "      Start merge lines 2"
+	print "      Start merge lines 2"
+	#tmp_points1 = []
+	#tmp_points2 = []
 	margin = 0.00001
 	for poly1 in gPOLYGONS:
 		if(poly1.delete):
@@ -2096,11 +2243,16 @@ def merge_polygons():
 				tmp_points2.pop()
 				tmp_points1 = tmp_points2 + tmp_points1
 				poly2.delete = 1
+			#elif(dist1 < margin and dist2 < margin):
+				#print "error dist1=" + str(dist1) + ", dist2=" + str(dist2)
+				#print "xi=" + str(tmp_points1[0]) + "xj=" +  str(tmp_points2[len(tmp_points2)-2]) + "yi=" + str(tmp_points1[1]) + "yj=" +  str(tmp_points2[-1])			
+				#poly2.delete = 1
 		poly1.points = tmp_points1
 
 def CrossAndIn(line_id,spoints):
 	global gLINES, gCCOUNT1, gCCOUNT2
 	#check in or out
+	#print line_id
 	xa = gLINES[line_id].x1
 	ya = gLINES[line_id].y1
 	xb = gLINES[line_id].x2
@@ -2127,8 +2279,11 @@ def CrossAndIn(line_id,spoints):
 		(cross_flag,cross_x,cross_y)=find_cross_point(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
 		cross_num+=cross_flag
 		if(cross_flag):
+			#print "cross"
 			cross_points.extend([cross_x,cross_y])
 			cross_nums.append(si)
+			#ovflag = IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+			#print ovflag
 		#reset flags
 		flagX1 = 0
 		flagX2 = 0
@@ -2198,16 +2353,44 @@ def CrossAndIn(line_id,spoints):
 
 	if(cross_count1):#
 		in_flag1 = 1
+		#TEST_POINTS1.append([xa,ya])
+		#if(line_id > 9):
+			#TEST_POINTS1.append([xa,ya])
+		#if(line_id == 1):
+			#TEST_POINTS1.append([xa,ya])
+			#TEST_POINTS1.append([xp1,yp1])
 	else:
 		in_flag1 = 0
+		#if(line_id == 1):
+			#TEST_POINTS1.append([xa,ya])
+			#TEST_POINTS1.append([xp1,yp1])
 	if(cross_count2):#
 		in_flag2 = 1
+		#if(line_id == 1):
+			#TEST_POINTS2.append([xb,yb])
+			#TEST_POINTS2.append([xp2,yp2])
+		#if(line_id <= 9):
+			#TEST_POINTS1.append([xb,yb])
+		#if(line_id > 9):
+			#TEST_POINTS2.append([xb,yb])
 	else:
 		in_flag2 = 0
-
+		#if(line_id == 1):
+			#TEST_POINTS2.append([xb,yb])
+			#TEST_POINTS2.append([xp2,yp2])
+	#PRE_IN_FLAG = in_flag2
+	#print "line=" +str(line_id) + ", Cross point num =" + str(cross_num)
+	#if(line_id == 16):
+		#print "Cross point num =" + str(cross_num)
+		#TEST_POINTS2.append([cross_points[0],cross_points[1]])
+	#if(cross_num > 0):
+		#ovflag = IsLineOverlap(xa,ya,xb,yb,xp1,yp1,xp2,yp2)
+		#if(ovflag):
+			#print "overlap " + str(line_id) + ", cross_num " + str(cross_num) + ", ovflag" + str(ovflag)
 
 	if(cross_num>1):
 		cross_points = sort_points_by_dist(xa,ya,cross_points)
+		#print calc_dist(gLINES[line_id].x1,gLINES[line_id].y1,cross_points[0],cross_points[1])
 		if(calc_dist(gLINES[line_id].x1,gLINES[line_id].y1,cross_points[0],cross_points[1])<=0.0):
 			if(in_flag1 != in_flag2):
 				gLINES[line_id].inside = 1
@@ -2244,6 +2427,7 @@ def CrossAndIn(line_id,spoints):
 		if(in_flag1 == in_flag2):
 			#in in
 			gLINES[line_id].inside=in_flag1
+			#print "in-in or Out-OUT:flag="+str(in_flag1)+ ", id=" +str(line_id)
 		else:
 			#in out
 			if(ovflag <=0):
@@ -2257,6 +2441,10 @@ def CrossAndIn(line_id,spoints):
 				gLINES[line_id].y2 = cross_points[1]
 				gLINES[line_id].inside = 0
 				gLINES.append(LINE(cross_points[0],cross_points[1],xb,yb,0,0))
+				#print line_id
+				#if(in_flag2 == 1):
+					#print line_id
+					#gLINES.append(LINE(cross_points[0],cross_points[1]+0.1,xb,yb+0.1,in_flag1,0))
 	else:
 		if(in_flag1 != in_flag2):
 			gLINES[line_id].inside = in_flag1
@@ -2304,7 +2492,9 @@ def IsLineOverlap(x1,y1,x2,y2,xa,ya,xb,yb):
 			a2 = (dy2)/(dx2)
 			b2 = ya-a2*xa
 			if(abs(a1-a2) < TINY):
+				#print "same angle " + str(a1 )+ ", b1=" + str(b1)+ ", b2=" + str(b2) + ", b2-b1=" + str(abs(b2-b1)) +", y1=" +str(y1) + ", ya=" + str(ya)
 				if(abs(b2-b1) < TINY):
+					#print "same b " + str(b1)
 					if(dx1 > 0):	#+
 						if(x1 <= xa and x2 >= xa):
 							return 5
@@ -2395,7 +2585,7 @@ def find_cross_point(x1,y1,x2,y2,xa,ya,xb,yb):
 def read_Drill_file(drill_file):
 	global gDRILL_D, gDRILL_TYPE, DRILL_UNIT,gUNIT,INCH
 	f = open(drill_file,'r')
-	#print "Read and Parse Drill data"
+	print "Read and Parse Drill data"
 	drill_d_unit = DRILL_UNIT
 	while 1:
 		drill = f.readline()
@@ -2409,7 +2599,9 @@ def read_Drill_file(drill_file):
 			#print drill_d_unit
 			gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * drill_d_unit
 			#gDRILL_D=float(gDRILL_TYPE[int(drill_num.group(1))]) * gUNIT
-		if (find(drill, "X") != -1 or find(drill, "Y") != -1):
+		if (find(drill, "G") != -1):
+			parse_drill_g(drill)
+		elif (find(drill, "X") != -1 or find(drill, "Y") != -1):
 			parse_drill_xy(drill)
 		if (find(drill, "INCH") != -1):
 			drill_d_unit = INCH
@@ -2418,6 +2610,23 @@ def read_Drill_file(drill_file):
 			#print "Drill unit = INCH"
 			DRILL_UNIT = INCH
 	f.close()
+def parse_drill_g(drill):
+	global gDRILL_LINES, gDRILL_D, DRILL_UNIT
+	#print "Drill G";
+	#xx = re.search("X([\d\.-]+)\D",drill)
+	#yy = re.search("Y([\d\.-]+)\D",drill)
+	xy = re.search("X([\d\.-]+)Y([\d\.-]+)\D[\d]+X([\d\.-]+)Y([\d\.-]+)",drill)
+	#if(xx):
+	#	x=float(xx.group(1)) * DRILL_UNIT
+	#if(yy):
+	#	y=float(yy.group(1)) * DRILL_UNIT
+	if(xy):
+		x1=float(xy.group(1)) * DRILL_UNIT
+		y1=float(xy.group(2)) * DRILL_UNIT
+		x2=float(xy.group(3)) * DRILL_UNIT
+		y2=float(xy.group(4)) * DRILL_UNIT
+		#print "x1=" + str(x1) + "y1=" + str(y1) + "x2=" + str(x2) + "y2=" + str(y2)
+		gDRILL_LINES.append(DRILL_LINE(x1,y1,x2,y2,gDRILL_D,0))
 
 def parse_drill_xy(drill):
 	global gDRILLS,gDRILL_D, DRILL_UNIT
@@ -2430,7 +2639,7 @@ def parse_drill_xy(drill):
 	gDRILLS.append(DRILL(x,y,gDRILL_D,0))
 
 def do_drill():
-	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D, gXSHIFT, gYSHIFT
+	global DRILL_SPEED, DRILL_DEPTH, gDRILLS, gDRILL_LINES, MOVE_HEIGHT, gDRILL_DATA, gGCODE_DATA, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, gTMP_X, gTMP_Y, gTMP_Z,MERGE_DRILL_DATA, gDRILL_D, DRILL_D, gXSHIFT, gYSHIFT
 	drill_data = ""
 	drill_mergin = 0.02
 	calc_shift()
@@ -2457,13 +2666,23 @@ def do_drill():
 		#Goto moving Z position
 		drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
 		gTMP_DRILL_Z = MOVE_HEIGHT
+	print "len gDRILL_LINES=" +str(len(gDRILL_LINES))
+	for drill_l in gDRILL_LINES:
+		x1 = drill_l.x1 + gXSHIFT
+		y1 = drill_l.y1 + gYSHIFT
+		x2 = drill_l.x2 + gXSHIFT
+		y2 = drill_l.y2 + gYSHIFT
+
+		drill_data += drill_line(x1,y1,x2,y2,drill_l.d)
+		#Goto moving Z position
+		drill_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
+		gTMP_DRILL_Z = MOVE_HEIGHT
 	gDRILL_DATA += drill_data
 	if(MERGE_DRILL_DATA):
 		gGCODE_DATA += drill_data
 		gTMP_X = gTMP_DRILL_X 
 		gTMP_Y = gTMP_DRILL_Y
 		gTMP_Z = gTMP_DRILL_Z
-
 def move_drill(x,y):
 	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z
 	xy_data = "G00"
@@ -2487,6 +2706,101 @@ def move_drill(x,y):
 		return out_data + xy_data + "\n"
 	else:
 		return ""
+def draw_drill_line(x1,y1,x2,y2,d):
+	global DRILL_D
+	drill_mergin = 0.02
+	ang_n = 100
+	points = []
+	deg90 = pi/2.0
+	if(d > DRILL_D + drill_mergin):
+		r = d/2 - DRILL_D/2
+		dx = x2-x1
+		dy = y2-y1
+		ang=atan2(dy,dx)
+		xa1=x1+r*cos(ang+deg90)
+		ya1=y1+r*sin(ang+deg90)
+		xa2=x1-r*cos(ang+deg90)
+		ya2=y1-r*sin(ang+deg90)
+		xb1=x2+r*cos(ang+deg90)
+		yb1=y2+r*sin(ang+deg90)
+		xb2=x2-r*cos(ang+deg90)
+		yb2=y2-r*sin(ang+deg90)
+		points = points + arc_points(x1,y1,r,ang+3*deg90,ang+deg90,ang_n)
+		points = points + arc_points(x2,y2,r,ang+deg90,ang-deg90,ang_n)
+		points = points + [xa2,ya2]
+	else:
+		points = [x1,y1,x2,y2]
+	return points
+
+def drill_line(x1,y1,x2,y2,d):
+	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED, DRILL_D ,gDRAWDRILL_LINE
+	out_data = ""
+	gcode_tmp_flag = 0
+	z_step_n = int(float(DRILL_DEPTH)/float(Z_STEP)) + 1
+	z_step = float(DRILL_DEPTH)/z_step_n
+	if(MOVE_HEIGHT != gTMP_DRILL_Z):
+		gTMP_DRILL_Z = MOVE_HEIGHT
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "\n"
+	points = []
+	ang_n = 100
+	drill_mergin = 0.02
+	deg90=pi/2.0
+	if(d > DRILL_D + drill_mergin):
+		r = d/2 - DRILL_D/2
+		dx = x2-x1
+		dy = y2-y1
+		ang=atan2(dy,dx)
+		xa1=x1+r*cos(ang+deg90)
+		ya1=y1+r*sin(ang+deg90)
+		xa2=x1-r*cos(ang+deg90)
+		ya2=y1-r*sin(ang+deg90)
+		xb1=x2+r*cos(ang+deg90)
+		yb1=y2+r*sin(ang+deg90)
+		xb2=x2-r*cos(ang+deg90)
+		yb2=y2-r*sin(ang+deg90)
+		points = points + arc_points(x1,y1,r,ang+3*deg90,ang+deg90,ang_n)
+		points = points + arc_points(x2,y2,r,ang+deg90,ang-deg90,ang_n)
+		points = points + [xa2,ya2]
+		tmp_x = xa2
+		tmp_y = ya2
+	else:
+		points = [x1,y1,x2,y2]
+		tmp_x = x2
+		tmp_y = y2
+	#gDRAWDRILL_LINE.append(DRAWPOLY(points,"",0))
+	out_data += "G00X" + str(tmp_x) + "Y" + str(tmp_y) + "\n"
+	#print z_step_n
+	#print len(points)
+	i = 1
+	while i <= z_step_n:
+		gTMP_DRILL_Z = i*z_step
+		out_data += "G00Z" + str(gTMP_DRILL_Z) + "F" + str(DRILL_SPEED) + "\n"
+		j = 0
+		cricle_data = "G01"
+		while j< len(points):
+			px=points[j]
+			py=points[j+1]
+			if (px != gTMP_DRILL_X):
+				gTMP_DRILL_X=px
+				cricle_data +="X" + str(px)
+				gcode_tmp_flag = 1
+			if(py != gTMP_DRILL_Y):
+				gTMP_DRILL_Y=py
+				cricle_data +="Y" + str(py)
+				gcode_tmp_flag=1
+			if(gcode_tmp_flag):
+				#Goto initial X-Y position
+				cricle_data +="F" + str(XY_SPEED)
+				out_data += cricle_data + "\n"
+				cricle_data ="G01"
+			gcode_tmp_flag=0
+			j += 2
+		i += 1
+
+	gTMP_DRILL_X = tmp_x
+	gTMP_DRILL_Y = tmp_y
+	return out_data
+
 def drill_hole(cx,cy,r):
 	global MOVE_HEIGHT, gTMP_DRILL_X, gTMP_DRILL_Y, gTMP_DRILL_Z, DRILL_SPEED, DRILL_DEPTH, Z_STEP, XY_SPEED
 	out_data = ""
