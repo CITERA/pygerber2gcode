@@ -174,7 +174,7 @@ class MainFrame(wx.Frame):
 		wx.Frame.__init__(self, parent, id, title, size=(WINDOW_X, WINDOW_Y))
 		# Setting up the menu.
 		filemenu= wx.Menu()
-		menuOpen = filemenu.Append(wx.ID_OPEN,"&Open"," Open files")
+		menuOpen = filemenu.Append(wx.ID_OPEN,"&Open/Save"," Open/Save files")
 		menuReload = filemenu.Append(wx.ID_REFRESH,"&Reload"," Reload files")
 		menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
 		setupmenu =  wx.Menu()
@@ -322,7 +322,7 @@ class MainFrame(wx.Frame):
 
 	def OnOpen(self,e):
 		global gPATTERNS, gDRAWDRILL, gDRAWDRILL_LINE, gDRAWEDGE, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE
-		setup = OpenFiles(None, -1, 'Open Files')
+		setup = OpenFiles(None, -1, 'Open/Save Files')
 		setup.ShowModal()
 		setup.Destroy()
 		if(len(gPATTERNS) > 0):
