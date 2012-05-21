@@ -352,8 +352,8 @@ def check_duplication(gGCODES):
 		if(gGCODES[i].gtype == 0):
 			i += 1
 			continue
-		m_x1_flag=0
-		m_y1_flag=0
+		#m_x1_flag=0
+		#m_y1_flag=0
 		#xi1=gGCODES[i].x1
 		#yi1=gGCODES[i].y1
 		#xi2=gGCODES[i].x2
@@ -366,11 +366,11 @@ def check_duplication(gGCODES):
 		if(gGCODES[i].x1>gGCODES[i].x2):
 			xi_min=gGCODES[i].x2
 			xi_max=gGCODES[i].x1
-			m_x1_flag=1
+			#m_x1_flag=1
 		if(gGCODES[i].y1>gGCODES[i].y2):
 			yi_min=gGCODES[i].y2
 			yi_max=gGCODES[i].y1
-			m_y1_flag=1
+			#m_y1_flag=1
 		dxi=gGCODES[i].x2-gGCODES[i].x1
 		dyi=gGCODES[i].y2-gGCODES[i].y1
 		if(abs(dxi) >= TINY):
@@ -384,8 +384,8 @@ def check_duplication(gGCODES):
 			if(gGCODES[i].gtype == 0):
 				#j += 1
 				break
-			m_x2_flag=0
-			m_y2_flag=0
+			#m_x2_flag=0
+			#m_y2_flag=0
 			xj1=gGCODES[j].x1
 			yj1=gGCODES[j].y1
 			xj2=gGCODES[j].x2
@@ -398,25 +398,17 @@ def check_duplication(gGCODES):
 			if(xj1>xj2):
 				xj_min=xj2
 				xj_max=xj1
-				m_x2_flag=1
+				#m_x2_flag=1
 			if(yj1>yj2):
 				yj_min=yj2
 				yj_max=yj1
-				m_y2_flag=1
-			#if(xj_min>=xi_max or xj_max<=xi_min):
-					#continue
-			#if((xj_min>=xi_min and xj_max>=xi_max) or (xj_min<=xi_min and xj_max<=xi_max)):
-					#continue
+				#m_y2_flag=1
 			
 			if(ti == tj):	#same type
 				if(ti == 3 or ti == 4):
-					#dxi=gGCODES[i].x2-gGCODES[i].x1
-					#dyi=gGCODES[i].y2-gGCODES[i].y1
 					dxj=xj2-xj1
 					dyj=yj2-yj1
 					if(abs(dxi) >= TINY):
-						#ai=dyi/dxi
-						#bi=gGCODES[i].y1-ai*gGCODES[i].x1
 						if(abs(dxj) >= TINY):
 							aj=dyj/dxj
 							bj=yj1-aj*xj1
@@ -437,13 +429,13 @@ def check_duplication(gGCODES):
 											gGCODES[j].gtype=0
 											#gGCODES[i].x1 = xi_min
 											#gGCODES[i].y1 = gGCODES[i].y1
-											if(m_x1_flag):	#if xi_min = gGCODES[i].x2
+											if(gGCODES[i].x1>gGCODES[i].x2):	#if xi_min = gGCODES[i].x2
 												gGCODES[i].x1 = xi_min
 												gGCODES[i].y1 = gGCODES[i].y2
 											gGCODES[i].x2 = xj_max
 											gGCODES[i].y2 = yj2
 											xi_max = xj_max
-											if(m_x2_flag):	#if xj_max = xj1
+											if(xj1>xj2):	#if xj_max = xj1
 												gGCODES[i].y2 = yj1
 											#j += 1
 											#continue
@@ -462,14 +454,17 @@ def check_duplication(gGCODES):
 											#print "x1=" +str(gGCODES[i].x1) +", y1=" +str(gGCODES[i].y1) +", x2=" +str(gGCODES[i].x2) +", y2=" +str(gGCODES[i].y2)
 											#gGCODES[i].x2 = xi_max
 											#gGCODES[i].y2 = gGCODES[i].y2
-											if(m_x1_flag):	#if xi_max = gGCODES[i].x1
-												gGCODES[i].x2 = xi_max
+											#if(m_x1_flag):	#if xi_max = gGCODES[i].x1
+											if(gGCODES[i].x2 <= gGCODES[i].x1):
+												#gGCODES[i].x2 = xi_max
+												gGCODES[i].x2 = gGCODES[i].x1
 												gGCODES[i].y2 = gGCODES[i].y1
 											gGCODES[i].x1 = xj_min
 											gGCODES[i].y1 = gGCODES[j].y1
-											xi_min = xj_min
-											if(m_x2_flag):	#if xi_min = xj2
+											#xi_min = xj_min
+											if(xj1>xj2):	#if xi_min = xj2
 												gGCODES[i].y1 = gGCODES[j].y2
+											xi_min = xj_min
 											#print "x1=" +str(gGCODES[i].x1) +", y1=" +str(gGCODES[i].y1) +", x2=" +str(gGCODES[i].x2) +", y2=" +str(gGCODES[i].y2)
 											#j += 1
 											#continue
@@ -487,12 +482,12 @@ def check_duplication(gGCODES):
 										gGCODES[j].gtype=0
 										#gGCODES[i].x1 = gGCODES[i].x1
 										gGCODES[i].y1 = yi_min
-										if(m_y1_flag):	#yi_min = gGCODES[i].y2
+										if(gGCODES[i].y1>gGCODES[i].y2):	#yi_min = gGCODES[i].y2
 											gGCODES[i].x1 = gGCODES[i].x2
 											#gGCODES[i].y1 = yi_min
 										gGCODES[i].x2 = gGCODES[j].x2
 										gGCODES[i].y2 = yj_max
-										if(m_y2_flag):
+										if(yj1>yj2):
 											gGCODES[i].x2 = gGCODES[j].x1
 										#j += 1
 										#continue
@@ -506,12 +501,12 @@ def check_duplication(gGCODES):
 									if(gGCODES[i].mod1 == gGCODES[j].mod1):
 										#gGCODES[i].x2 = GCODES[i].x2
 										gGCODES[i].y2 = yi_max
-										if(m_y1_flag):
+										if(gGCODES[i].y1>gGCODES[i].y2):
 											gGCODES[i].x2 = gGCODES[i].x1
 											#gGCODES[i].y2 = yi_max
 										gGCODES[i].x1 = GCODES[j].x1
 										gGCODES[i].y1 = yj_min
-										if(m_y2_flag):
+										if(yj1>yj2):
 											gGCODES[i].x1 = GCODES[j].x2
 											#gGCODES[i].y1 = yj_min
 			else:	#ti != tj
