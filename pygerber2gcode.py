@@ -172,6 +172,7 @@ class MainFrame(wx.Frame):
 	def __init__(self, parent, id, title):
 		global WINDOW_X, WINDOW_Y, gDISP_GERBER, gDISP_DRILL, gDISP_EDGE, gDISP_CONTOUR, gDRAWCONTOUR
 		wx.Frame.__init__(self, parent, id, title, size=(WINDOW_X, WINDOW_Y))
+		self.Bind(wx.EVT_CLOSE, self.OnExit)
 		# Setting up the menu.
 		filemenu= wx.Menu()
 		menuOpen = filemenu.Append(wx.ID_OPEN,"&Open/Save"," Open/Save files")
@@ -280,7 +281,7 @@ class MainFrame(wx.Frame):
 			self.cb4.SetValue(0)
 		self.Refresh(1)
 	def OnExit(self,e):
-		self.Close(True)  # Close the frame.
+		sys.exit(0)
 	def OnSetup(self,e):
 		setup = MachineSetup(None, -1, 'Machine Setup')
 		setup.ShowModal()
