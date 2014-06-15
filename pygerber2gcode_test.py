@@ -837,15 +837,15 @@ def check_duplication():
 										break
 								elif(yj_max > yi_min):
 									if(gGCODES[i].mod1 == gGCODES[j].mod1):
-										#gGCODES[i].x2 = GCODES[i].x2
+										#gGCODES[i].x2 = gGCODES[i].x2
 										gGCODES[i].y2 = yi_max
 										if(m_y1_flag):
 											gGCODES[i].x2 = gGCODES[i].x1
 											#gGCODES[i].y2 = yi_max
-										gGCODES[i].x1 = GCODES[j].x1
+										gGCODES[i].x1 = gGCODES[j].x1
 										gGCODES[i].y1 = yj_min
 										if(m_y2_flag):
-											gGCODES[i].x1 = GCODES[j].x2
+											gGCODES[i].x1 = gGCODES[j].x2
 											#gGCODES[i].y1 = yj_min
 			else:	#ti != tj
 				if(ti == 2):
