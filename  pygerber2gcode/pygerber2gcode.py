@@ -151,6 +151,8 @@ gPAINTWINDOW_Y_MIN = 100
 
 gSCROLL_DX = 10
 gSCROLL_DY = 10
+gPRE_SCROLL_X = 0
+gPRE_SCROLL_Y = 0
 
 gCOLORS = [
 'AQUAMARINE','BLACK','BLUE','BLUE VIOLET','BROWN',
@@ -193,6 +195,9 @@ class MainFrame(wx.Frame):
 		menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
 		menuBar.Append(setupmenu,"&Setup") # Adding the "filemenu" to the MenuBar
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+
+		self.statusbar = self.CreateStatusBar()
+		self.SetStatusText("mouse position")
 
 		#Event for Menu bar
 		self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
@@ -270,6 +275,7 @@ class MainFrame(wx.Frame):
 		panel.SetSizer(vbox)
 		self.Centre()
 		self.Show(True)
+
 
 		#Event
 		self.Bind(wx.EVT_CHECKBOX, self.OnFront,self.cb0)
@@ -500,13 +506,10 @@ class MainFrame(wx.Frame):
 						center=gFRONT_HEADER.center
 					gFRONT_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
 					tmp_poly_num=gFRONT_HEADER.count_active_figs()
-					#print "Loop No. = ",i,", number of plygons = ",len(gFRONT_HEADER.figs.elements)
-					#progress.Update(pp, 'Loop No. '+ str(i)+", Number of Polygons"+str(len(gFRONT_HEADER.figs.elements)))
-					#progress.Update(pp, 'Loop No. '+ str(i)+", Number of Polygons"+str(gFRONT_HEADER.count_active_figs()))
-					progress.Update(pp, 'Loop No. '+ str(i)+", Number of Polygons"+str(tmp_poly_num))
+					progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_FRONT)+", Number of Polygons"+str(tmp_poly_num))
 					tmp_elements += gFRONT_HEADER.figs.elements
 					if tmp_poly_num < 2:
-						progress.Update(100, 'Loop No. '+ str(i)+", Number of Polygons"+str(tmp_poly_num))
+						progress.Update(100, 'No new polygons')
 						break
 				gFRONT_HEADER.figs.elements=tmp_elements
 		xoff=0.0
@@ -557,10 +560,13 @@ class MainFrame(wx.Frame):
 					gBACK_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
 					if len(gBACK_HEADER.figs.elements) < 1:
 						break
-					progress.Update(pp, 'Loop No. '+ str(i)+", Number of Polygons"+str(len(gBACK_HEADER.figs.elements)))
-					#print "Loop No. = ",i,", number of plygons = ",len(gBACK_HEADER.figs.elements)
+					tmp_poly_num=gBACK_HEADER.count_active_figs()
+					#tmp_poly_num=len(gBACK_HEADER.figs.elements)
+					progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_BACK)+", Number of Polygons"+str(tmp_poly_num))
 					tmp_elements += gBACK_HEADER.figs.elements
-					#print "num",len(tmp_elements)
+					if tmp_poly_num < 2:
+						progress.Update(100, 'No new polygons')
+						break
 				gBACK_HEADER.figs.elements=tmp_elements
 		#print "back center =",center
 		if DRILL_FILE:
@@ -683,9 +689,14 @@ class Paint(wx.ScrolledWindow):
 	def __init__(self, parent):
 		#global gPAINTWINDOW_X, gPAINTWINDOW_Y, gSCROLL_DX, gSCROLL_DY
 		wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
+		#self.scroll = wx.ScrolledWindow.__init__(self, parent,-1,style=wx.HSCROLL|wx.VSCROLL)
+		#parent = Panel
+		self.mainW = parent.GetParent().GetParent()
 		self.SetBackgroundColour('WHITE')
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
-
+		self.parentW = parent
+		#print self.GetSize(),parent.GetSize()
+		
 		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(gPAINTWINDOW_X/gSCROLL_DX),int(gPAINTWINDOW_Y/gSCROLL_DY));
 		self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
 
@@ -702,17 +713,45 @@ class Paint(wx.ScrolledWindow):
 		#self.Bind(wx.EVT_LEFT_DCLICK, self.OnMouseLeftDClick)
 		#self.Bind(wx.EVT_RIGHT_DCLICK , self.OnMouseRightDClick) 
 
-		wx.EVT_SCROLL(self,self.OnScroll)
+		#wx.EVT_SCROLL(self,self.OnScroll)
 		#self.Bind(wx.EVT_COMMAND_SCROLL,self.OnScroll)
-		#self.Bind(wx.EVT_SCROLLWIN,self.OnScroll)
+		self.Bind(wx.EVT_SCROLLWIN,self.OnScroll)
 
 	def OnSize(self, e):
 		self.Refresh(True)
 	def OnScroll(self, e):
-		print "scroll"
+		global gDRAW_XSHIFT,gDRAW_YSHIFT,gPRE_SCROLL_X ,gPRE_SCROLL_Y
+		#print e.CalcScrollInc()
+		#print gDRAW_XSHIFT,gDRAW_YSHIFT
+		#print self.CalcScrolledPosition(e.GetPosition(),gDRAW_YSHIFT)
+		#print self.CalcUnscrolledPosition(gDRAW_XSHIFT,gDRAW_YSHIFT)
+		#print e.GetOrientation()
+		#print "scroll"
+		#print locals()
+		#try:
+		#	pre_x = pre_x
+		#except UnboundLocalError:
+		#	pre_x = 0
+
+		if e.GetOrientation() == wx.HORIZONTAL:
+			#x = e.GetPosition():gMAG
+			#gDRAW_XSHIFT = CENTER_Y - e.GetPosition()*gMAG
+			#gDRAW_XSHIFT = - gMAG*(e.GetPosition()-gDRAW_XSHIFT-CENTER_X)
+			gDRAW_XSHIFT += (gPRE_SCROLL_X - e.GetPosition())*1
+			#print pre_x - e.GetPosition(),pre_x,e.GetPosition()
+			gPRE_SCROLL_X = e.GetPosition()
+			#print pre_x 
+		elif e.GetOrientation() == wx.VERTICAL:
+			gDRAW_YSHIFT += (gPRE_SCROLL_Y - e.GetPosition())*1
+			gPRE_SCROLL_Y = e.GetPosition()
+		#print e.GetPosition()
+		#print e.GetOrientation()
+		#print x,y
 		#self.Refresh(True)
+		#self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY))
 		#print self.GetPosition()
 		#print self.GetOrientation()
+		self.Refresh(True)
 	#gerber
 	def OnPaint(self, e):
 		global CENTER_X, CENTER_Y
@@ -720,6 +759,7 @@ class Paint(wx.ScrolledWindow):
 		#dc = wx.BufferedPaintDC(self)
 		dc = wx.PaintDC(self)
 		paint_size = self.GetSize()
+		#print paint_size,self.parentW.GetSize()
 		#print paint_size
 		CENTER_X =int(paint_size.x/2)+1
 		CENTER_Y =int(paint_size.y/2)+1
@@ -940,7 +980,10 @@ class Paint(wx.ScrolledWindow):
 			cdc.SetBrush(wx.Brush(ZOOM_COLOR,wx.TRANSPARENT))
 			cdc.SetPen(wx.Pen(ZOOM_COLOR, 1, wx.SOLID))
 			cdc.DrawRectangle(x,y,dx,dy)
-
+		#print pos.x,gDRAW_XSHIFT,CENTER_X,gMAG
+		mouse_x = (pos.x-gDRAW_XSHIFT-CENTER_X)/gMAG
+		mouse_y = -(pos.y-gDRAW_YSHIFT-CENTER_Y)/gMAG
+		self.mainW.statusbar.SetStatusText('x:'+str(mouse_x)+", y:"+str(mouse_y))
 class OpenFiles(wx.Dialog):
 	def __init__(self, parent, id, title):
 		wx.Dialog.__init__(self, parent, id, title, size=(250, 210))
