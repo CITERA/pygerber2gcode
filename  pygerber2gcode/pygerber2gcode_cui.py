@@ -8,10 +8,12 @@
 import sys
 import re
 
+#import gerber_org as gerber
+#import gerber_test as gerber
 import gerber
 import gcode
 import gerber_shapely as gs
-#from matplotlib import pyplot
+from matplotlib import pyplot
 #Global Constant
 MERGINE = 1e-4
 INCH = 25.4 #mm
@@ -230,7 +232,7 @@ def main():
 		f_gcd.add_polygon(CUT_DEPTH,f_op.out_figs.elements,XY_SPEED, Z_SPEED)
 		f_gcd.out(OUT_DIR,OUT_FRONT_FILE)
 		a_gcd.add_polygon(CUT_DEPTH,f_op.out_figs.elements,XY_SPEED, Z_SPEED)
-		#disp_fig(f_op.raw_figs, f_op.figs)
+		disp_fig(f_op.raw_figs, f_op.figs)
 	if BACK_FILE:
 		b_op.center = center
 		b_op.xoff = xoff

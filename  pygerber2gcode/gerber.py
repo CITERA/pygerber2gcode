@@ -24,6 +24,11 @@ class Drill:
 		self.mm = 1.0
 		self.out_unit=out_unit
 		self.drill_unit = self.mm/self.out_unit
+		self.pre_x = 0
+		self.pre_y = 0
+		self.left = 0
+		self.right = 1
+		self.cut0 = self.left
 		#Open file
 		self.drill_lines = self.open_file()
 		#Parse
@@ -36,6 +41,23 @@ class Drill:
 		for drill in self.drill_lines:
 			if not drill:
 				continue
+			if (drill.find("FMAT") != -1):
+				print "FMAT",drill
+			if (drill.find("INCH") != -1):
+				self.drill_unit = self.inch/self.out_unit
+				if(drill.find("LZ") !=-1):
+					#print "  L"
+					self.cut0 = self.left
+				elif(drill.find("TZ") !=-1):
+					#print "  T"
+					self.cut0 = self.right
+			if (drill.find("METRIC") != -1):
+				self.drill_unit = self.mm/self.out_unit
+			if (drill.find("M72") != -1):
+				self.drill_unit = self.inch/self.out_unit
+			if (drill.find("M71") != -1):
+				self.drill_unit = self.mm/self.out_unit
+
 			drill_data = re.search("T([\d]+)C([\d\.]+)",drill)
 			drill_num = re.search("T([\d]+)[^C\d]*",drill)
 			if(drill_data):
@@ -45,19 +67,67 @@ class Drill:
 				#print int(drill_num.group(1))
 				if int(drill_num.group(1)) > 0:
 					self.drill_d=float(self.drill_types[int(drill_num.group(1))])*self.drill_unit
-			if (drill.find("G") != -1):
-				self.parse_drill_g(drill)
-			elif (drill.find("X") != -1 or drill.find("Y") != -1):
-				self.parse_drill_xy(drill)
-			if (drill.find("INCH") != -1):
-				self.drill_unit = self.inch/self.out_unit
-			if (drill.find("METRIC") != -1):
-				self.drill_unit = self.mm/self.out_unit
-			if (drill.find("M72") != -1):
-				self.drill_unit = self.inch/self.out_unit
-			if (drill.find("M71") != -1):
-				self.drill_unit = self.mm/self.out_unit
-	def parse_drill_g(self,drill):
+			xx = re.search("X([\d\.-]+)[^\d\.\-]*",drill)
+			yy = re.search("Y([\d\.-]+)[^\d\.\-]*",drill)
+			dd = re.search("D([\d]+)\D",drill)
+			gg = re.search("G([\d]+)\D",drill)
+			xy = re.search("X([\d\.-]+)Y([\d\.-]+)G([\d]+)X([\d\.-]+)Y([\d\.-]+)",drill)
+
+			if (gg):
+				self.parse_drill_g(gg.group(1),drill)
+
+			if (not xy) and (not gg):
+				x = self.pre_x
+				y = self.pre_y
+				if(xx):
+					x=float(xx.group(1)) * self.drill_unit
+					self.pre_x = x
+				if(yy):
+					y=float(yy.group(1)) * self.drill_unit
+					self.pre_y = y
+				if (xx) or (yy):
+					self.drills.append(self.Drill(0,self.drill_d,(x,y)))
+
+
+	def parse_drill_g(self,g_num,drill):
+		g_num=int(g_num)
+
+		#G
+		if (g_num ==90):
+			print "Absolute Mode"
+		if (g_num ==5):
+			print "Drill Mode"
+		if (g_num ==85):
+			print "slot"
+			xy = re.search("X([\d\.-]+)Y([\d\.-]+)\D[\d]+X([\d\.-]+)Y([\d\.-]+)",drill)
+			if(xy):
+				x1=float(xy.group(1)) * self.drill_unit
+				y1=float(xy.group(2)) * self.drill_unit
+				x2=float(xy.group(3)) * self.drill_unit
+				y2=float(xy.group(4)) * self.drill_unit
+				self.drills.append(self.Drill(1,self.drill_d,(x1,y1),(x2,y2)))
+		if (g_num ==0):
+			print "G00:Route Mode is not supported:" + drill
+		if (g_num ==1):
+			print "G01:Linear (Straight Line) Mode is not supported:" + drill
+		if (g_num ==2):
+			print "G02:Circular CW Mode is not supported:" + drill
+		if (g_num ==3):
+			print "G03:Circular CCW Mode is not supported:" + drill
+		if (g_num ==4):
+			print "G04:X# Variable Dwell is not supported:" + drill
+		if (g_num ==7):
+			print "G07:Override current tool feed or speed is not supported:" + drill
+		if (g_num ==32):
+			print "G32:Routed Circle Canned Cycle is not supported:" + drill
+		if (g_num ==33):
+			print "G33:Routed Circle Canned Cycle is not supported:" + drill
+		if (g_num ==34):
+			print "G34:Select Vision Tool is not supported:" + drill
+		if (g_num >=35):
+			print "G35 and above are not supported:" + drill
+
+	def parse_drill_g_old(self,drill):
 		xy = re.search("X([\d\.-]+)Y([\d\.-]+)\D[\d]+X([\d\.-]+)Y([\d\.-]+)",drill)
 		if(xy):
 			x1=float(xy.group(1)) * self.drill_unit
@@ -172,14 +242,8 @@ class Gerber:
 			f = int(self.yf)
 		if(self.cut0 == self.left):
 			out_val = float(int(value))/(10**f)
-			#if len(value) < 7:
-			#out_val = str(value)[:-f]+ "." + str(value)[-f:]
-			#tmp = float(str(value)[:-f]+ "." + str(value)[-f:])
-			#if out_val != tmp:
-				#print value,out_val,tmp,len(str(value))
 		elif(self.cut0 == self.right):
 			out_val = str(value)[0:i] + "." + str(value)[i:]
-		#return float(out_val)
 		return out_val
 	def set_aperture(self, atype, mod):
 		self.atype = atype
@@ -208,10 +272,33 @@ class Gerber:
 		for line in self.gerber_lines:
 			if not line:
 				break
+			#print line
+			xx = re.search("X([\d\-]+)\D",line)
+			yy = re.search("Y([\d\-]+)\D",line)
+			dd = re.search("D([\d]+)\D",line)
+			gg = re.search("G([\d]+)\D",line)
+			ii = re.search("I([\d\-]+)\D",line)
+			jj = re.search("J([\d\-]+)\D",line)
+			x=self.pre_x
+			y=self.pre_y
 			#Find G
-			if(line.find("G") == 0 or line.find("g") == 0):
-				#print "G " + line
-				self.parse_g(line)
+			if(gg):
+				self.parse_g(gg.group(1))
+			if (xx):
+				x = xx.group(1)
+				x = float(self.change_float(x)) * self.unit
+				self.pre_x = x
+			if (yy):
+				y = yy.group(1)
+				y = float(self.change_float(y,1)) * self.unit
+				self.pre_y = y
+			#Find D
+			if (dd):
+				d = dd.group(1)
+				self.parse_d(d,x,y)
+			else:
+				#print int(self.pre_dnum)
+				self.parse_d(self.pre_dnum,x,y)
 			#Find %
 			if(line.find("%") == 0):
 				#print "% " + line
@@ -219,108 +306,102 @@ class Gerber:
 			#Find M
 			if(line.find("M") == 0):
 				print "M comand is not supported:" + line
-			if (line.find("X") == 0):
-			#	print "X " + line
-				self.parse_xy(line)
 		if len(self.tmp_points) > 1:
 			self.add_polygon(self.tmp_points)
 			self.tmp_points = []
 	def get_dnum(self,gerber):
 		dnum = re.search("D([\d]+)\D",gerber)
 		return dnum.group(1)
-	def parse_g(self,gerber):
-		#current_aperture = self.pre_aperture
-		index_d = gerber.find("D")
-		if index_d < 0:
-			index_d = 3
-		#index_ast = gerber.find("*")
 
+	def parse_g(self,g_num):
+		g_num=int(g_num)
 		#G10
-		if (gerber.find("10",1,index_d) !=-1):
+		if (g_num ==10):
 			print "G10 is not supported:" + gerber
 			self.line_interpolation = 1
 		#G11
-		elif (gerber.find("11",1,index_d) !=-1):
+		elif (g_num ==11):
 			print "G11 is not supported:" + gerber
 			self.line_interpolation = 1
 		#G12
-		elif (gerber.find("12",1,index_d) !=-1):
+		elif (g_num ==12):
 			print "G12 is not supported:" + gerber
 			self.line_interpolation = 1
 		#G36 polygon start
-		elif (gerber.find("36",1,index_d) !=-1):
+		elif (g_num ==36):
 			#print "G36 is not supported:" + gerber
 			self.polygon_sw = 1
 			self.tmp_points = []
 		#G37 polygon end
-		elif (gerber.find("37",1,index_d) !=-1):
+		elif (g_num ==37):
 			#print "G37 is not supported:" + gerber
 			if len(self.tmp_points) > 1:
 				self.add_polygon(self.tmp_points)
 				self.tmp_points = []
 			self.polygon_sw = 0
 		#G54 Select tool
-		elif (gerber.find("54",1,index_d) !=-1):
+		elif (g_num ==54):
 			#print "54 is not supported:" + gerber
 			#print "tool ID=" + str(get_dnum(gerber))
-			if len(self.tmp_points) > 1:
-				self.add_polygon(self.tmp_points)
-				self.tmp_points = []
-			tmp_aperture = str(self.get_dnum(gerber))
+			#if len(self.tmp_points) > 1:
+			#	self.add_polygon(self.tmp_points)
+			#	self.tmp_points = []
 			self.g54_sw = 1
-			if(tmp_aperture):
-				if (tmp_aperture != self.current_aperture):
-					self.pre_aperture = self.current_aperture
-					self.current_aperture = tmp_aperture
+			#tmp_aperture = str(self.get_dnum(gerber))
+			#if(tmp_aperture):
+			#	if (tmp_aperture != self.current_aperture):
+			#		self.pre_aperture = self.current_aperture
+			#		self.current_aperture = tmp_aperture
 		#G70
-		elif (gerber.find("70",1,index_d) !=-1):
+		elif (g_num ==70):
 			#print "70 is not supported:" + gerber
 			#print "  Unit = INCH"
 			self.unit = self.inch/self.out_unit
 		#G71
-		elif (gerber.find("71",1,index_d) !=-1):
+		elif (g_num ==71):
 			#print "71 is not supported:" + gerber
 			#print "  Unit = MM"
 			self.unit = self.mm/self.out_unit
 		#G74
-		elif (gerber.find("74",1,index_d) !=-1):
+		elif (g_num ==74):
 			print "G74 is not supported:" + gerber
 			self.arc_interpolation360 = 0
 		#G75
-		elif (gerber.find("75",1,index_d) !=-1):
+		elif (g_num ==75):
 			print "G75 is not supported:" + gerber
 			self.arc_interpolation360 = 1
 		#G90
-		elif (gerber.find("90",1,index_d) !=-1):
+		elif (g_num ==90):
 			#print "90 is not supported:" + gerber
 			#print "   ABS"
 			self.coor = self.abs
 		#G91
-		elif (gerber.find("91",1,index_d) !=-1):
+		elif (g_num ==91):
+			print "G91 (Incremental Mode) is not supported:"
 			#print "91 is not supported:" + gerber
 			#print "   relative"
 			self.coor = self.rel
 		#### 00
 		#G01
-		elif (gerber.find("01",1,index_d) !=-1):
+		elif (g_num ==1):
 			#print "G01 is not supported:" + gerber
 			self.line_interpolation = 1
 		#G02
-		elif (gerber.find("02",1,index_d) !=-1):
+		elif (g_num ==2):
 			print "G02 is not supported:" + gerber
 			self.arc_interpolation = 1
 			self.arc_dir = 0
 		#G03
-		elif (gerber.find("03",1,index_d) !=-1):
+		elif (g_num ==3):
 			print "G03 is not supported:" + gerber
 			self.arc_interpolation = 1
 			self.arc_dir = 1
 		#G04	Comment 
-		elif (gerber.find("04",1,index_d) !=-1):
-			print "Comment :" + gerber
+		#elif (g_num ==04):
+		#	print "Comment :" + gerber
 			#nop
 		#G00
-		elif (gerber.find("00",1,index_d) !=-1):
+		elif (g_num ==0):
 			print "G00 is not supported:" + gerber
 		#else:
 			#g54_FLAG = 0
@@ -343,7 +424,7 @@ class Gerber:
 				#print "  A"
 				self.coor = self.abs
 			elif(gerber.find("I",4,5) !=-1):
-				#print "  I"
+				print "  Incremental Mode is not supported:"
 				self.coor = self.rel
 			fsx = re.search("X([\d]+)\D",gerber)
 			fsy = re.search("Y([\d]+)\D",gerber)
@@ -419,6 +500,7 @@ class Gerber:
 		#else:
 			#nop
 	def add_polygon(self,points):
+		#if int(self.current_aperture) in self.apertures:
 		mod1 = float(self.apertures[int(self.current_aperture)].mod[0])*self.unit
 		if len(self.apertures[int(self.current_aperture)].mod) > 1:
 			mod2 = float(self.apertures[int(self.current_aperture)].mod[1])*self.unit
@@ -434,62 +516,55 @@ class Gerber:
 		elif(self.apertures[int(self.current_aperture)].type ==  "P"):
 			#Polygon
 			self.figures.append(self.Path(3,mod1,points, self.polygon_sw))
-		self.pre_x = points[-1][0]
-		self.pre_y = points[-1][1]
+		#self.pre_x = points[-1][0]
+		#self.pre_y = points[-1][1]
 
-	def parse_xy(self, gerber):
-		d=0
-		xx = re.search("X([\d\-]+)\D",gerber)
-		yy = re.search("Y([\d\-]+)\D",gerber)
-		dd = re.search("D([\d]+)\D",gerber)
-		mod = self.apertures[int(self.current_aperture)].mod
-		mod1 = float(mod[0]) * self.unit
-		mod2 = 0
-		if len(mod) > 1:
-			mod2 = float(mod[1])*self.unit
-		if (xx):
-			x = int(xx.group(1))
-			x = float(self.change_float(x)) * self.unit
-			if (x != self.pre_x):
-				self.pre_x = x
-		if (yy):
-			y = int(yy.group(1))
-			y = float(self.change_float(y,1)) * self.unit
-			if (y != self.pre_y):
-				self.pre_y = y
-		if (dd):
-			d = dd.group(1)
-			#Flash
-			if(d == "03" or d == "3"):
-				if(self.apertures[int(self.current_aperture)].type == "C"):
-					#Circle(cx, cy, r, hole_w=0, hole_h=0, active = 1):
-					self.figures.append(self.Circle(x,y,mod1/2))
-				elif(self.apertures[int(self.current_aperture)].type ==  "R"):
-					#Rectangle:(x1 , y1, x2, y2, hole_w=0, hole_h=0, active = 1):
-					#self.figures.append(self.Rectangle(x-mod1/2,y,x+mod1/2,y))
-					self.figures.append(self.Rectangle(x-mod1/2,y-mod2/2,x+mod1/2,y+mod2/2))
-				elif(self.apertures[int(self.current_aperture)].type == "O"):
-					#Oval(cx, cy, w, h, hole_w=0, hole_h=0, active = 1):
-					self.figures.append(self.Oval(x,y,mod1,mod2))
-				elif(self.apertures[int(self.current_aperture)].type ==  "P"):
-					#Polygon(d,sides,rot=0, hole_w=0, hole_h=0, active = 1)
-					self.figures.append(self.Polygon(mod1/2,mod2))
-				self.pre_x = x
-				self.pre_y = y
-			#move
-			elif(d == "02" or d == "2"):
-				self.pre_x = x
-				self.pre_y = y	
-				if len(self.tmp_points) > 1:
-						self.add_polygon(self.tmp_points)
-				self.tmp_points=[(x,y)]
-			elif(d == "01" or d == "1"):
-				self.tmp_points.append((x,y))
-			self.pre_dnum = d
-		#if (self.g54_sw):
-			#print "parse data"
-			#self.parse_data(x,y,d)
-
+	def parse_d(self,d,x,y):
+		if int(self.current_aperture) in self.apertures:
+			#print gerber,self.current_aperture
+			mod = self.apertures[int(self.current_aperture)].mod
+			mod1 = float(mod[0]) * self.unit
+			mod2 = 0
+			if len(mod) > 1:
+				mod2 = float(mod[1])*self.unit
+		#Flash
+		if(int(d) == 3):
+			if(self.apertures[int(self.current_aperture)].type == "C"):
+				#Circle(cx, cy, r, hole_w=0, hole_h=0, active = 1):
+				self.figures.append(self.Circle(x,y,mod1/2))
+			elif(self.apertures[int(self.current_aperture)].type ==  "R"):
+				#Rectangle:(x1 , y1, x2, y2, hole_w=0, hole_h=0, active = 1):
+				#self.figures.append(self.Rectangle(x-mod1/2,y,x+mod1/2,y))
+				self.figures.append(self.Rectangle(x-mod1/2,y-mod2/2,x+mod1/2,y+mod2/2))
+			elif(self.apertures[int(self.current_aperture)].type == "O"):
+				#Oval(cx, cy, w, h, hole_w=0, hole_h=0, active = 1):
+				self.figures.append(self.Oval(x,y,mod1,mod2))
+			elif(self.apertures[int(self.current_aperture)].type ==  "P"):
+				#Polygon(d,sides,rot=0, hole_w=0, hole_h=0, active = 1)
+				self.figures.append(self.Polygon(mod1/2,mod2))
+			self.tmp_points = []
+			#self.pre_x = x
+			#self.pre_y = y
+		#move
+		elif(int(d) == 2):
+			#self.pre_x = x
+			#self.pre_y = y	
+			if len(self.tmp_points) > 1:
+					self.add_polygon(self.tmp_points)
+			self.tmp_points=[(x,y)]	#
+		elif(int(d) == 1):	#Draw
+			#self.pre_x = x
+			#self.pre_y = y
+			self.tmp_points.append((x,y))
+		else:	#Tool change
+			if len(self.tmp_points) > 1:
+				self.add_polygon(self.tmp_points)
+				self.tmp_points = []
+			self.g54_sw = 1
+			if (d != self.current_aperture):
+				self.pre_aperture = self.current_aperture
+				self.current_aperture = d
+		self.pre_dnum = d
 def open_file(dirname, filename):
 	file_name = os.path.join(dirname, filename)
 	try:
