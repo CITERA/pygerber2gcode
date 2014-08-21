@@ -4,6 +4,7 @@
 import os
 import sys
 import re
+import math
 #from math import *
 class Drill:
 	#http://www.excellon.com/manuals/program.htm
@@ -230,6 +231,8 @@ class Gerber:
 		self.arc_interpolation = 0
 		self.arc_dir = 0
 		self.arc_interpolation360 = 0
+		self.ii = 0
+		self.jj = 0
 		#Open file
 		self.gerber_lines = self.open_file()
 		#Parse
@@ -281,17 +284,26 @@ class Gerber:
 			jj = re.search("J([\d\-]+)\D",line)
 			x=self.pre_x
 			y=self.pre_y
+
 			#Find G
 			if(gg):
 				self.parse_g(gg.group(1))
 			if (xx):
 				x = xx.group(1)
 				x = float(self.change_float(x)) * self.unit
-				self.pre_x = x
+				#self.pre_x = x
 			if (yy):
 				y = yy.group(1)
 				y = float(self.change_float(y,1)) * self.unit
-				self.pre_y = y
+				#self.pre_y = y
+			if (ii):
+				i = ii.group(1)
+				i = float(self.change_float(i)) * self.unit
+				self.ii = i
+			if (jj):
+				j = jj.group(1)
+				j = float(self.change_float(j,1)) * self.unit
+				self.jj = j
 			#Find D
 			if (dd):
 				d = dd.group(1)
@@ -299,6 +311,8 @@ class Gerber:
 			else:
 				#print int(self.pre_dnum)
 				self.parse_d(self.pre_dnum,x,y)
+			self.pre_x = x
+			self.pre_y = y
 			#Find %
 			if(line.find("%") == 0):
 				#print "% " + line
@@ -315,17 +329,18 @@ class Gerber:
 
 	def parse_g(self,g_num):
 		g_num=int(g_num)
+		self.arc_interpolation = 0
 		#G10
 		if (g_num ==10):
-			print "G10 is not supported:" + gerber
+			print "G10 is not supported:"
 			self.line_interpolation = 1
 		#G11
 		elif (g_num ==11):
-			print "G11 is not supported:" + gerber
+			print "G11 is not supported:"
 			self.line_interpolation = 1
 		#G12
 		elif (g_num ==12):
-			print "G12 is not supported:" + gerber
+			print "G12 is not supported:"
 			self.line_interpolation = 1
 		#G36 polygon start
 		elif (g_num ==36):
@@ -354,57 +369,58 @@ class Gerber:
 			#		self.current_aperture = tmp_aperture
 		#G70
 		elif (g_num ==70):
-			#print "70 is not supported:" + gerber
+			#print "70 is not supported:"
 			#print "  Unit = INCH"
 			self.unit = self.inch/self.out_unit
 		#G71
 		elif (g_num ==71):
-			#print "71 is not supported:" + gerber
+			#print "71 is not supported:"
 			#print "  Unit = MM"
 			self.unit = self.mm/self.out_unit
 		#G74
 		elif (g_num ==74):
-			print "G74 is not supported:" + gerber
+			#print "G74 is not supported:"
 			self.arc_interpolation360 = 0
 		#G75
 		elif (g_num ==75):
-			print "G75 is not supported:" + gerber
+			#print "G75 is not supported:"
 			self.arc_interpolation360 = 1
 		#G90
 		elif (g_num ==90):
-			#print "90 is not supported:" + gerber
+			#print "90 is not supported:"
 			#print "   ABS"
 			self.coor = self.abs
 		#G91
 		elif (g_num ==91):
 			print "G91 (Incremental Mode) is not supported:"
-			#print "91 is not supported:" + gerber
+			#print "91 is not supported:"
 			#print "   relative"
 			self.coor = self.rel
 		#### 00
 		#G01
 		elif (g_num ==1):
-			#print "G01 is not supported:" + gerber
+			#print "G01 is not supported:"
 			self.line_interpolation = 1
 		#G02
 		elif (g_num ==2):
-			print "G02 is not supported:" + gerber
+			#print "G02 is not supported:"
 			self.arc_interpolation = 1
-			self.arc_dir = 0
+			self.arc_dir = 0	#CW
 		#G03
 		elif (g_num ==3):
-			print "G03 is not supported:" + gerber
+			#print "G03 is not supported:"
 			self.arc_interpolation = 1
-			self.arc_dir = 1
+			self.arc_dir = 1	#CCW
 		#G04	Comment 
 		#elif (g_num ==04):
 		#	print "Comment :" + gerber
 			#nop
 		#G00
 		elif (g_num ==0):
-			print "G00 is not supported:" + gerber
+			print "G00 is not supported:"
 		#else:
 			#g54_FLAG = 0
+
 	def parse_p(self,gerber):
 		#index_ast = gerber.find("*")
 		index_d = 3
@@ -520,6 +536,9 @@ class Gerber:
 		#self.pre_y = points[-1][1]
 
 	def parse_d(self,d,x,y):
+		#self.arc_interpolation
+		#self.arc_interpolation360
+		#self.arc_dir
 		if int(self.current_aperture) in self.apertures:
 			#print gerber,self.current_aperture
 			mod = self.apertures[int(self.current_aperture)].mod
@@ -543,19 +562,25 @@ class Gerber:
 				#Polygon(d,sides,rot=0, hole_w=0, hole_h=0, active = 1)
 				self.figures.append(self.Polygon(mod1/2,mod2))
 			self.tmp_points = []
-			#self.pre_x = x
-			#self.pre_y = y
 		#move
 		elif(int(d) == 2):
-			#self.pre_x = x
-			#self.pre_y = y	
 			if len(self.tmp_points) > 1:
 					self.add_polygon(self.tmp_points)
 			self.tmp_points=[(x,y)]	#
 		elif(int(d) == 1):	#Draw
-			#self.pre_x = x
-			#self.pre_y = y
-			self.tmp_points.append((x,y))
+			if (self.arc_interpolation):
+				#print self.pre_x,x,self.pre_y,y
+				r = math.sqrt(self.ii*self.ii+self.jj*self.jj)
+				if (self.arc_interpolation360 and (self.pre_x == x and self.pre_y == y)):
+					#circle
+					#r = math.sqrt(self.ii*self.ii+self.jj*self.jj)
+					self.figures.append(self.Circle(self.pre_x+self.ii,self.pre_y+self.jj,r))
+					return
+				#arc_points(c,r,sp,ep,ccw,kaku)
+				#self.add_polygon(arc_points((self.pre_x+self.ii,self.pre_y+self.jj),r,(self.pre_x,self.pre_y),(x,y),self.arc_dir,20))
+				self.tmp_points.extend(arc_points((self.pre_x+self.ii,self.pre_y+self.jj),r,(self.pre_x,self.pre_y),(x,y),self.arc_dir,20))
+			else:
+				self.tmp_points.append((x,y))
 		else:	#Tool change
 			if len(self.tmp_points) > 1:
 				self.add_polygon(self.tmp_points)
@@ -565,6 +590,27 @@ class Gerber:
 				self.pre_aperture = self.current_aperture
 				self.current_aperture = d
 		self.pre_dnum = d
+def arc_points(c,r,sp,ep,ccw,kaku):
+	points=[]
+	start_angle = math.atan2(sp[1]-c[1],sp[0]-c[0])
+	end_angle = math.atan2(ep[1]-c[1],ep[0]-c[0])
+	if ccw:
+		if start_angle < end_angle:
+			ang_step=(end_angle-start_angle)/(kaku-1)
+		else:
+			ang_step=(end_angle+2*math.pi-start_angle)/(kaku-1)
+	else:
+		if start_angle < end_angle:
+			ang_step=(end_angle-start_angle+2*math.pi)/(kaku-1)
+		else:
+			ang_step=(end_angle-start_angle)/(kaku-1)
+	i = 0
+	while i < kaku:
+		arc_x=c[0]+r*math.cos(start_angle+ang_step*float(i))
+		arc_y=c[1]+r*math.sin(start_angle+ang_step*float(i))
+		points.append((arc_x,arc_y))
+		i += 1
+	return points
 def open_file(dirname, filename):
 	file_name = os.path.join(dirname, filename)
 	try:

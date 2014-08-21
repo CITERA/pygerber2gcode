@@ -242,7 +242,7 @@ class MainFrame(wx.Frame):
 		sizer1.Add(grid1)
 		hbox0.Add(sizer1)
 
-		fit_btn = wx.Button(panel1, -1, 'Fit window', size=(100, 30))
+		fit_btn = wx.Button(panel1, -1, 'Fit to window', size=(100, 30))
 		hbox0.Add(fit_btn)
 		center_btn = wx.Button(panel1, -1, 'Goto Center', size=(100, 30))
 		hbox0.Add(center_btn)
@@ -316,7 +316,7 @@ class MainFrame(wx.Frame):
 		#size = self.GetSize()
 		#size = self.panel2.GetSize()
 		size = self.paint.GetSize()
-		print size
+		#print size
 		gMAG=size.x/abs(gFIG_XMAX-gFIG_XMIN)
 		if gMAG > size.y/abs(gFIG_YMAX-gFIG_YMIN):
 			gMAG = size.y/abs(gFIG_YMAX-gFIG_YMIN)
@@ -363,6 +363,7 @@ class MainFrame(wx.Frame):
 		self.Refresh(1)
 	def OnExit(self,e):
 		self.Close(True)  # Close the frame.
+		sys.exit()
 	def OnSetup(self,e):
 		setup = MachineSetup(None, -1, 'Machine Setup')
 		setup.ShowModal()
@@ -789,7 +790,7 @@ class Paint(wx.ScrolledWindow):
 
 				dc.DrawLines(points)
 		if(len(gDRAWDRILL) > 0 and gDISP_DRILL):
-			print "Drill",len(gDRAWDRILL)
+			#print "Drill",len(gDRAWDRILL)
 			for drill in gDRAWDRILL:
 				x = drill.x * gMAG + gDRAW_XSHIFT-veiw_start[0]
 				y = -drill.y * gMAG + gDRAW_YSHIFT-veiw_start[1]
@@ -2109,7 +2110,7 @@ def drill2gcode(gcode_header,elements):
 	z_step = float(DRILL_DEPTH)/z_step_n
 	for elmt in elements:
 		if len(elmt.points) < 2:
-			print "point"
+			#print "point"
 			gcode_header.add_drill(DRILL_DEPTH,elmt.points[0], DRILL_Z_SPEED)
 		else:
 			j = 1
