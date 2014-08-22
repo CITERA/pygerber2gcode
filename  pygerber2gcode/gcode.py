@@ -55,11 +55,12 @@ class Gcode:
 	def add_drill(self,height,point, z_speed=0):
 		ret_data = ""
 		self.move(point[0]+float(self.shift_x),point[1]+float(self.shift_y))
+		self.tmp_z = height
 		if(z_speed):
 			ret_data += "G01Z" + str(height) + "F" + str(z_speed) + "\n"
 		else:
 			ret_data += "G01Z" + str(height) + "\n"
-		#ret_data += "G00Z" + str(MOVE_HEIGHT) + "\n"
+		#self.move(point[0]+float(self.shift_x),point[1]+float(self.shift_y))
 		if(ret_data):
 			self.out_data += ret_data
 	def add_path(self,height,points,xy_speed, z_speed):
