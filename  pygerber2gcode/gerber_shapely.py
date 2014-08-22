@@ -175,7 +175,7 @@ class Gerber_OP:
 					tmp_r = gbr.w/2.0+self.tool_r
 					shift_y = (gbr.h-gbr.w)/2.0
 					self.figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(tmp_r)))
-					self.raw_figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(gbr.h/2.0)))
+					self.raw_figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(gbr.w/2.0)))
 			elif(gbr.type == 4):
 				#Polygon
 				self.figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r)+self.tool_r,resolution=gbr.sides)))
