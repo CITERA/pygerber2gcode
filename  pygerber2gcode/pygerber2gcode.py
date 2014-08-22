@@ -594,7 +594,7 @@ class MainFrame(wx.Frame):
 			gEDGE_HEADER.rot_ang=float(ROT_ANG)
 			gEDGE_HEADER.get_minmax()
 			#center=gEDGE_HEADER.center
-
+		#print "rot ang",ROT_ANG
 		###########out gcode
 		if FRONT_FILE:
 			gFRONT_HEADER.center = center
@@ -659,23 +659,28 @@ class MainFrame(wx.Frame):
 		self.Refresh(1)
 	def OnConvert(self,e):
 		a_gcd = gcode.Gcode()
+		set_gcode(a_gcd)
 		if FRONT_FILE:
 			f_gcd = gcode.Gcode()
+			set_gcode(f_gcd)
 			f_gcd.add_polygon(CUT_DEPTH,gFRONT_HEADER.out_figs.elements,XY_SPEED, Z_SPEED)
 			f_gcd.out(OUT_DIR,OUT_FRONT_FILE)
 			a_gcd.add_polygon(CUT_DEPTH,gFRONT_HEADER.out_figs.elements,XY_SPEED, Z_SPEED)
 		if BACK_FILE:
 			b_gcd = gcode.Gcode()
+			set_gcode(b_gcd)
 			b_gcd.add_polygon(CUT_DEPTH,gBACK_HEADER.out_figs.elements,XY_SPEED, Z_SPEED)
 			b_gcd.out(OUT_DIR,OUT_BACK_FILE)
 			a_gcd.add_polygon(CUT_DEPTH,gBACK_HEADER.out_figs.elements,XY_SPEED, Z_SPEED)
 		if DRILL_FILE:
 			d_gcd = gcode.Gcode()
+			set_gcode(d_gcd)
 			drill2gcode(d_gcd,gDRILL_HEADER.out_figs.elements)
 			d_gcd.out(OUT_DIR,OUT_DRILL_FILE)
 			drill2gcode(a_gcd,gDRILL_HEADER.out_figs.elements)
 		if EDGE_FILE:
 			e_gcd = gcode.Gcode()
+			set_gcode(e_gcd)
 			edge2gcode(e_gcd,gEDGE_HEADER.out_figs.elements)
 			e_gcd.out(OUT_DIR,OUT_EDGE_FILE)
 			edge2gcode(a_gcd,gEDGE_HEADER.out_figs.elements)
@@ -1886,6 +1891,14 @@ def drill_draw(header):
 		else:
 			gDRAWDRILL.append(DRILL(polygon.points[0][0],polygon.points[0][1],DRILL_D,0))
 
+def set_gcode(gcode_handler):
+	gcode_handler.mcode_sw = MCODE_FLAG
+	gcode_handler.unit = OUT_INCH_FLAG
+	gcode_handler.ini_x = INI_X
+	gcode_handler.ini_y = INI_Y
+	gcode_handler.ini_z = INI_Z
+	gcode_handler.move_hight = MOVE_HEIGHT
+
 def contour2draw_front(header):
 	global gDRAWCONTOUR
 	for polygon in header.elements:
@@ -1920,6 +1933,7 @@ def save_config():
 	config_data += "CUT_STEP_R_BACK = " + str(CUT_STEP_R_BACK) + "\n"
 	config_data += "CUT_MAX_FRONT = " + str(CUT_MAX_FRONT) + "\n"
 	config_data += "CUT_MAX_BACK = " + str(CUT_MAX_BACK) + "\n"
+	config_data += "CUT_MARGIN_R = " + str(CUT_MARGIN_R) + "\n"
 
 	##############
 	config_data +="\n#Convert Setting\n"
@@ -1940,10 +1954,9 @@ def save_config():
 	config_data += "GBACK_EXT = \"" + str(GBACK_EXT) + "\"\n"
 	config_data += "GDRILL_EXT = \"" + str(GDRILL_EXT) + "\"\n"
 	config_data += "GEDGE_EXT = \"" + str(GEDGE_EXT) + "\"\n"
-	config_data += "CUT_ALL_FRONT = " + str(CUT_ALL_FRONT) + "\n"
-	config_data += "CUT_ALL_BACK = " + str(CUT_ALL_BACK) + "\n"
+	#config_data += "CUT_ALL_FRONT = " + str(CUT_ALL_FRONT) + "\n"
+	#config_data += "CUT_ALL_BACK = " + str(CUT_ALL_BACK) + "\n"
 	#Optional
-	config_data += "CUT_MARGIN_R = " + str(CUT_MARGIN_R) + "\n"
 	config_data += "PATTERN_SHIFT = " + str(PATTERN_SHIFT) + "\n"
 	#######################
 	config_data +="\n#Machine Setting\n"

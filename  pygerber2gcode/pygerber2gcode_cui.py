@@ -218,8 +218,10 @@ def main():
 		e_op.get_minmax()
 		#center=e_op.center
 	#print "edge center =",center
+
 	#out gcode
 	a_gcd = gcode.Gcode()
+	set_gcode(a_gcd)
 	if FRONT_FILE:
 		f_op.center = center
 		f_op.xoff = xoff
@@ -229,6 +231,7 @@ def main():
 		f_op.draw_out()
 		f_op.fig_out()
 		f_gcd = gcode.Gcode()
+		set_gcode(f_gcd)
 		f_gcd.add_polygon(CUT_DEPTH,f_op.out_figs.elements,XY_SPEED, Z_SPEED)
 		f_gcd.out(OUT_DIR,OUT_FRONT_FILE)
 		a_gcd.add_polygon(CUT_DEPTH,f_op.out_figs.elements,XY_SPEED, Z_SPEED)
@@ -240,6 +243,7 @@ def main():
 		b_op.affine()
 		b_op.fig_out()
 		b_gcd = gcode.Gcode()
+		set_gcode(b_gcd)
 		b_gcd.add_polygon(CUT_DEPTH,b_op.out_figs.elements,XY_SPEED, Z_SPEED)
 		b_gcd.out(OUT_DIR,OUT_BACK_FILE)
 		a_gcd.add_polygon(CUT_DEPTH,b_op.out_figs.elements,XY_SPEED, Z_SPEED)
@@ -251,6 +255,7 @@ def main():
 		d_op.affine()
 		d_op.fig_out()
 		d_gcd = gcode.Gcode()
+		set_gcode(d_gcd)
 		drill2gcode(d_gcd,d_op.out_figs.elements)
 		d_gcd.out(OUT_DIR,OUT_DRILL_FILE)
 		drill2gcode(a_gcd,d_op.out_figs.elements)
@@ -261,15 +266,24 @@ def main():
 		e_op.affine()
 		e_op.fig_out()
 		e_gcd = gcode.Gcode()
+		set_gcode(e_gcd)
 		edge2gcode(e_gcd,e_op.out_figs.elements)
 		e_gcd.out(OUT_DIR,OUT_EDGE_FILE)
 		edge2gcode(a_gcd,e_op.out_figs.elements)
 
 	a_gcd.out(OUT_DIR,OUT_ALL_FILE)
 
+def set_gcode(gcode_handler):
+	gcode_handler.mcode_sw = MCODE_FLAG
+	gcode_handler.unit = OUT_INCH_FLAG
+	gcode_handler.ini_x = INI_X
+	gcode_handler.ini_y = INI_Y
+	gcode_handler.ini_z = INI_Z
+	gcode_handler.move_hight = MOVE_HEIGHT
+
 def read_config(config_file):
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, CUT_FLAG, CUT_OV
-	global DRILL_UNIT, EDGE_UNIT
+	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, CAD_UNIT, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP, GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT, CUT_FLAG, CUT_OV,MCODE_FLAG
+	#global DRILL_UNIT, EDGE_UNIT
 	global GERBER_DIR,FRONT_FILE,BACK_FILE,DRILL_FILE,EDGE_FILE,MIRROR_FRONT,MIRROR_BACK,MIRROR_DRILL,MIRROR_EDGE,ROT_ANG
 	global OUT_DIR,OUT_FRONT_FILE,OUT_BACK_FILE,OUT_DRILL_FILE,OUT_EDGE_FILE,OUT_ALL_FILE
 	global CUT_ALL_FRONT, CUT_ALL_BACK, CUT_STEP_R_FRONT,CUT_STEP_R_BACK, CUT_MAX_FRONT, CUT_MAX_BACK,CUT_MARGIN_R,PATTERN_SHIFT,DRILL_TYPE
@@ -397,6 +411,8 @@ def read_config(config_file):
 					PATTERN_SHIFT = int(cfg.group(2))
 				if(cfg.group(1)=="DRILL_TYPE"):
 					DRILL_TYPE = int(cfg.group(2))
+				if(cfg.group(1)=="MCODE_FLAG"):
+					MCODE_FLAG = int(cfg.group(2))
 
 		f.close()
 def drill2gcode(gcode_header,elements):
