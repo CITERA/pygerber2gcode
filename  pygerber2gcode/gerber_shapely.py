@@ -1,6 +1,7 @@
 from shapely.geometry import Point,LineString,LinearRing,Polygon,MultiPolygon,box
 from shapely.geometry.polygon import orient
 from shapely.ops import cascaded_union
+from shapely.ops import unary_union
 from shapely.ops import linemerge
 from shapely import affinity
 
@@ -136,32 +137,27 @@ class Gerber_OP:
 				if gbr.polygon:
 					tmp_polygon = Polygon(gbr.points)
 					#print "Polygon",len(gbr.points)
-					self.raw_figs.add(self.Figs(tmp_polygon))
-					if tmp_polygon.is_valid:
-						#print "valid polygon"
-						self.figs.add(self.Figs(tmp_polygon.buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
-					else:
-						#print "invalid polygon"
-						self.invalid_polygons.append(self.Polygon_shape(gbr.points,r=float(gbr.w)/2.0+self.tool_r,fig_type=gbr.fig_type))
-						for ring in tmp_polygon.buffer(float(gbr.w)/2.0, cap_style=cap_s).interiors:
-							self.raw_figs.add(self.Figs(Polygon(ring)))
+					#self.raw_figs.add(self.Figs(tmp_polygon))
+					self.tmp_figs.add(self.Figs(tmp_polygon.buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
+					raw_polygon = tmp_polygon.buffer(float(gbr.w)/2.0, cap_style=cap_s)
+					self.raw_figs.add(self.Figs(raw_polygon))
+					if raw_polygon.interiors:
+						for interior in raw_polygon.interiors:
+							self.raw_figs.add(self.Figs(Polygon(interior)))
+					#self.raw_figs.add(self.Figs(tmp_polygon))
 				else:
-					if LineString(gbr.points).is_simple:
-						self.figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
-						self.raw_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0, cap_style=cap_s)))
-					else:
-						self.raw_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/4.0, cap_style=cap_s)))
-
+					self.tmp_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
+					self.raw_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0, cap_style=cap_s)))
 			elif(gbr.type == 1):
 				#Circle
-				self.figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r)+self.tool_r,resolution=self.circle_ang)))
+				self.tmp_figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r)+self.tool_r,resolution=self.circle_ang)))
 				self.raw_figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r),resolution=self.circle_ang)))
 			elif(gbr.type == 2):
 				#Rectangle
 				points = [(gbr.x1-self.tool_r,gbr.y1-self.tool_r),(gbr.x1-self.tool_r,gbr.y2+self.tool_r),
 					(gbr.x2+self.tool_r,gbr.y2+self.tool_r),(gbr.x2+self.tool_r,gbr.y1-self.tool_r),
 					(gbr.x1-self.tool_r,gbr.y1-self.tool_r)]
-				self.figs.add(self.Figs(Polygon(points)))
+				self.tmp_figs.add(self.Figs(Polygon(points)))
 				points = [(gbr.x1,gbr.y1),(gbr.x1,gbr.y2),(gbr.x2,gbr.y2),(gbr.x2,gbr.y1),(gbr.x1,gbr.y1)]
 				self.raw_figs.add(self.Figs(Polygon(points)))
 			elif(gbr.type == 3):
@@ -169,40 +165,43 @@ class Gerber_OP:
 				if gbr.h <= gbr.w:
 					tmp_r = gbr.h/2.0+self.tool_r
 					shift_x = (gbr.w-gbr.h)/2.0
-					self.figs.add(self.Figs(LineString([(gbr.cx-shift_x,gbr.cy),(gbr.cx+shift_x,gbr.cy)]).buffer(tmp_r)))
+					self.tmp_figs.add(self.Figs(LineString([(gbr.cx-shift_x,gbr.cy),(gbr.cx+shift_x,gbr.cy)]).buffer(tmp_r)))
 					self.raw_figs.add(self.Figs(LineString([(gbr.cx-shift_x,gbr.cy),(gbr.cx+shift_x,gbr.cy)]).buffer(gbr.h/2.0)))
 				else:
 					tmp_r = gbr.w/2.0+self.tool_r
 					shift_y = (gbr.h-gbr.w)/2.0
-					self.figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(tmp_r)))
+					self.tmp_figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(tmp_r)))
 					self.raw_figs.add(self.Figs(LineString([(gbr.cx,gbr.cy-shift_y),(gbr.cx,gbr.cy+shift_y)]).buffer(gbr.w/2.0)))
 			elif(gbr.type == 4):
 				#Polygon
-				self.figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r)+self.tool_r,resolution=gbr.sides)))
+				self.tmp_figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r)+self.tool_r,resolution=gbr.sides)))
 				self.raw_figs.add(self.Figs(Point(gbr.cx,gbr.cy).buffer(float(gbr.r),resolution=gbr.sides)))
+
 	def merge_polygon(self):
-		polygons =[]
-		for elmt in self.figs.elements:
+		merge = []
+		for elmt in self.tmp_figs.elements:
 			if elmt.active == 0:
 				continue
 			if elmt.element.is_empty:
 				continue
 			if elmt.element.geom_type == 'Polygon':
-				if elmt.element.is_valid:
-					polygons.append(elmt.element)
-					elmt.active = 0
-				#else:
-					#print "invaild"
+				merge.append(elmt.element)
 			elif elmt.element.geom_type == 'MultiPolygon':
-				polygons.extend(elmt.element.geoms)
-				elmt.active = 0
-
-		tmp_polygon = cascaded_union(polygons)
-		if tmp_polygon.geom_type == 'Polygon':
-			self.tmp_figs.add(self.Figs(tmp_polygon))
-		elif tmp_polygon.geom_type == 'MultiPolygon':
-			for polygon in tmp_polygon:
-				self.tmp_figs.add(self.Figs(polygon))
+				for polygon in elmt.element:
+					merge.append(polygon)
+		tmp = cascaded_union(merge)
+		if tmp.geom_type=='MultiPolygon':
+			for poly in cascaded_union(merge):
+				if poly.is_valid:
+ 					self.figs.add(self.Figs(poly))
+				else:
+					print "Invalid"
+				if poly.interiors:
+					#print "interiors"
+					for inter in poly.interiors:
+					 self.figs.add(self.Figs(Polygon(inter)))
+		elif tmp.geom_type=='Polygon':
+			self.figs.add(self.Figs(tmp))
 
 	def merge_line(self):
 		lines=[]
@@ -220,98 +219,7 @@ class Gerber_OP:
 		else:
 			print "no lines merged"
 
-	def diff_polygon_multi(self):
-		tmp_inv_poly = []
-		for i in range(len(self.invalid_polygons)):
-			polygon_ex = Polygon(self.invalid_polygons[i].element.buffer(self.invalid_polygons[i].r).exterior)
-			for polygon in self.tmp_figs.elements:
-				if self.invalid_polygons[i].element.intersects(polygon.element):
-					polygon.active = 0
-					polygon_ex = polygon_ex.union(polygon.element)
-				elif polygon_ex.intersects(polygon.element):
-					if not polygon_ex.contains(polygon.element):
-						polygon.active = 0
-						polygon_ex = polygon_ex.union(polygon.element)
-			tmp_inv_poly.append(polygon_ex)
-		inv_poly_flag = [0] * len(self.invalid_polygons)
-		for j in range(len(self.invalid_polygons)):
-			inv_poly_flag[j] = True
-			for ring in self.invalid_polygons[j].element.buffer(self.invalid_polygons[j].r).interiors:
-				ring_polygon = Polygon(ring)
-				ring_flag = True
-				for i in range(len(self.invalid_polygons)):
-					if i==j:
-						continue
-					if tmp_inv_poly[j].contains(self.invalid_polygons[i].element):
-						if ring_polygon.contains(tmp_inv_poly[i]):
-							continue
-						if tmp_inv_poly[i].intersects(ring_polygon):
-							ring_polygon = ring_polygon.difference(tmp_inv_poly[i])
-							inv_poly_flag[i] = False
-				for polygon in self.tmp_figs.elements:
-					if ring_polygon.intersects(polygon.element):
-						if ring_polygon.contains(polygon.element):
-							continue
-						if ring_polygon.within(polygon.element):
-							ring_flag = False
-							continue
-						tmp_polygon = ring_polygon.difference(polygon.element)
-						if tmp_polygon.is_empty:
-							continue
-						ring_flag=True
-						ring_polygon = tmp_polygon
-						polygon.active = 0
 
-				if ring_flag:
-					self.figs.add(self.Figs(ring_polygon))
-		for i in range(len(self.invalid_polygons)):
-			if inv_poly_flag[i]:
-				self.figs.add(self.Figs(tmp_inv_poly[i]))
-		for fig in self.tmp_figs.elements:
-			self.figs.add(fig)
-
-	def diff_polygon(self):
-		in_flag=[]
-		print "inv_poly_num =",len(self.invalid_polygons)
-		for invalid_polygon in self.invalid_polygons:
-			polygon_ex = Polygon(invalid_polygon.element.buffer(invalid_polygon.r).exterior)
-			for i in range(len(self.tmp_figs.elements)):
-				in_flag.append(False)
-				if polygon_ex.intersects(self.tmp_figs.elements[i].element):
-					if polygon_ex.contains(self.tmp_figs.elements[i].element):
-						in_flag[-1]=True
-						continue
-					if polygon_ex.within(self.tmp_figs.elements[i].element):
-						self.tmp_figs.elements[i].active = 0
-						continue
-					polygon_ex=polygon_ex.union(self.tmp_figs.elements[i].element)
-					self.tmp_figs.elements[i].active = 0
-			self.figs.add(self.Figs(polygon_ex))	
-			for ring in invalid_polygon.element.buffer(invalid_polygon.r).interiors:
-				ring_polygon = Polygon(ring)
-				ring_flag = True
-				for i in range(len(self.tmp_figs.elements)):
-					if ring_polygon.intersects(self.tmp_figs.elements[i].element):
-						if ring_polygon.contains(self.tmp_figs.elements[i].element):
-							in_flag[i] = False
-							continue
-						if ring_polygon.within(self.tmp_figs.elements[i].element):
-							self.tmp_figs.elements[i].active = 0
-							ring_flag = False
-							continue
-						#
-						tmp_polygon = ring_polygon.difference(self.tmp_figs.elements[i].element)
-						if tmp_polygon.is_empty:
-							print "empty"
-							continue
-						ring_polygon = tmp_polygon
-						self.tmp_figs.elements[i].active = 0
-						ring_flag=True
-				if ring_flag:
-					self.figs.add(self.Figs(ring_polygon))
-		for i in range(len(self.tmp_figs.elements)):
-			if not in_flag[i]:
-				self.figs.add(self.tmp_figs.elements[i])
 	def count_active_figs(self):
 		i=0
 		for elmt in self.figs.elements:
@@ -350,12 +258,12 @@ class Gerber_OP:
 					elmt.element=affinity.rotate(elmt.element, self.rot_ang,origin=self.center)
 				if abs(self.xoff) > 0.0 or abs(self.yoff) > 0.0:
 					elmt.element=affinity.translate(elmt.element, xoff=self.xoff, yoff=self.yoff)
-	def get_minmax(self):
+	def get_minmax(self,handler):
 		self.xmin = self.huge
 		self.ymin = self.huge
 		self.xmax = -self.huge
 		self.ymax = -self.huge
-		for elmt in self.figs.elements:
+		for elmt in handler.elements:
 			if elmt.element.is_empty:
 				continue
 			if elmt.active:
@@ -368,7 +276,9 @@ class Gerber_OP:
 					self.xmax=maxx
 				if maxy > self.ymax:
 					self.ymax=maxy
+
 		self.center=((self.xmax+self.xmin)/2.0,(self.ymax+self.ymin)/2.0,0)
+
 	def draw_out(self):
 		for elmt in self.raw_figs.elements:
 			if elmt.element.is_empty:
@@ -385,11 +295,69 @@ class Gerber_OP:
 					#print "multi polygon"
 					for sub_elmt in elmt.element:
 						self.draw_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
+
 				elif elmt.element.geom_type == 'Polygon':
 					self.draw_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
 				elif elmt.element.geom_type == 'Point':
 					#print "Point"
 					self.draw_figs.add(self.Polygon(list(elmt.element.coords)))
+
+	def draw_out_test(self):
+		for elmt in self.raw_figs.elements:
+			if elmt.element.is_empty:
+				continue
+			if elmt.active:
+				if elmt.element.geom_type == 'MultiLineString':
+					for sub_elmt in elmt.element:
+						self.draw_figs.add(self.Polygon(sub_elmt.coords))
+				elif elmt.element.geom_type == 'LineString':
+					self.draw_figs.add(self.Polygon(elmt.element.coords))
+				elif elmt.element.geom_type == 'LinearRing':
+					self.draw_figs.add(self.Polygon(elmt.element.coords))
+				elif elmt.element.geom_type == 'MultiPolygon':
+					#print "multi polygon"
+					for sub_elmt in elmt.element:
+						self.draw_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
+						if sub_elmt.interiors:
+							for interior in sub_elmt.interiors:
+								self.out_figs.add(self.Polygon(list(interior.coords)))
+				elif elmt.element.geom_type == 'Polygon':
+					self.draw_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
+					if elmt.element.interiors:
+						for interior in elmt.element.interiors:
+							self.out_figs.add(self.Polygon(list(interior.coords)))
+				elif elmt.element.geom_type == 'Point':
+					#print "Point"
+					self.draw_figs.add(self.Polygon(list(elmt.element.coords)))
+
+	def fig_out_test(self):
+		for elmt in self.figs.elements:
+			if elmt.element.is_empty:
+				continue
+			if elmt.active:
+				#print elmt.element
+				if elmt.element.geom_type == 'MultiLineString':
+					for sub_elmt in elmt.element:
+						self.out_figs.add(self.Polygon(sub_elmt.coords))
+				elif elmt.element.geom_type == 'LineString':
+					self.out_figs.add(self.Polygon(elmt.element.coords))
+				elif elmt.element.geom_type == 'LinearRing':
+					self.out_figs.add(self.Polygon(elmt.element.coords))
+				elif elmt.element.geom_type == 'MultiPolygon':
+					#print "multi polygon"
+					for sub_elmt in elmt.element:
+						self.out_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
+						if sub_elmt.interiors:
+							for interior in sub_elmt.interiors:
+								self.out_figs.add(self.Polygon(list(interior.coords)))
+				elif elmt.element.geom_type == 'Polygon':
+					self.out_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
+					if elmt.element.interiors:
+						for interior in elmt.element.interiors:
+							self.out_figs.add(self.Polygon(list(interior.coords)))
+				elif elmt.element.geom_type == 'Point':
+					#print "Point"
+					self.out_figs.add(self.Polygon(list(elmt.element.coords)))
 
 	def fig_out(self):
 		for elmt in self.figs.elements:

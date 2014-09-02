@@ -394,7 +394,7 @@ class MainFrame(wx.Frame):
 			front_gerber = gerber.Gerber(GERBER_DIR,FRONT_FILE,OUT_UNIT)
 			tmp_front = gs.Gerber_OP(front_gerber,TOOL_D)
 			tmp_front.gerber2shapely()
-			tmp_front.get_minmax()
+			tmp_front.get_minmax(tmp_front.tmp_figs)
 			tmp_front.draw_out()
 			gFIG_XMAX = tmp_front.xmax
 			gFIG_YMAX = tmp_front.ymax
@@ -474,8 +474,8 @@ class MainFrame(wx.Frame):
 				#gFRONT_HEADER.draw_out()
 				#front_draw(gFRONT_HEADER.draw_figs)
 				gFRONT_HEADER.merge_polygon()
-				gFRONT_HEADER.diff_polygon()
-				gFRONT_HEADER.get_minmax()
+				#gFRONT_HEADER.diff_polygon()
+				gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
 				center=gFRONT_HEADER.center
 			else:
 				CUT_STEP = float(TOOL_D) * float(CUT_STEP_R_FRONT)
@@ -496,8 +496,8 @@ class MainFrame(wx.Frame):
 					gFRONT_HEADER.mirror=MIRROR_FRONT
 					gFRONT_HEADER.rot_ang=float(ROT_ANG)
 					gFRONT_HEADER.merge_polygon()
-					gFRONT_HEADER.diff_polygon_multi()
-					gFRONT_HEADER.get_minmax()
+					#gFRONT_HEADER.diff_polygon_multi()
+					gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
 					#gFRONT_HEADER.affine()
 					if i == 0:
 						tmp_xmax = gFRONT_HEADER.xmax+CUT_MARGIN_R*TOOL_D
@@ -528,8 +528,8 @@ class MainFrame(wx.Frame):
 				gBACK_HEADER.rot_ang=float(ROT_ANG)
 				gBACK_HEADER.gerber2shapely()
 				gBACK_HEADER.merge_polygon()
-				gBACK_HEADER.diff_polygon()
-				gBACK_HEADER.get_minmax()
+				#gBACK_HEADER.diff_polygon()
+				gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
 				if not FRONT_FILE:
 					center=gBACK_HEADER.center
 			else:
@@ -550,8 +550,8 @@ class MainFrame(wx.Frame):
 					gBACK_HEADER.mirror=MIRROR_BACK
 					gBACK_HEADER.rot_ang=float(ROT_ANG)
 					gBACK_HEADER.merge_polygon()
-					gBACK_HEADER.diff_polygon_multi()
-					gBACK_HEADER.get_minmax()
+					#gBACK_HEADER.diff_polygon_multi()
+					gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
 					#gBACK_HEADER.affine()
 					if i == 0:
 						tmp_xmax = gBACK_HEADER.xmax+CUT_MARGIN_R*TOOL_D
@@ -580,7 +580,7 @@ class MainFrame(wx.Frame):
 			gDRILL_HEADER.drill2shapely()
 			gDRILL_HEADER.mirror=MIRROR_DRILL
 			gDRILL_HEADER.rot_ang=float(ROT_ANG)
-			gDRILL_HEADER.get_minmax()
+			gDRILL_HEADER.get_minmax(gDRILL_HEADER.figs)
 			#center=gDRILL_HEADER.center
 
 		if EDGE_FILE:
@@ -592,7 +592,7 @@ class MainFrame(wx.Frame):
 			gEDGE_HEADER.merge_line()
 			gEDGE_HEADER.mirror=MIRROR_EDGE
 			gEDGE_HEADER.rot_ang=float(ROT_ANG)
-			gEDGE_HEADER.get_minmax()
+			gEDGE_HEADER.get_minmax(gEDGE_HEADER.figs)
 			#center=gEDGE_HEADER.center
 		#print "rot ang",ROT_ANG
 		###########out gcode
@@ -603,7 +603,7 @@ class MainFrame(wx.Frame):
 			gFRONT_HEADER.affine()
 			gFRONT_HEADER.fig_out()
 			gFRONT_HEADER.affine_trans(gFRONT_HEADER.raw_figs)
-			gFRONT_HEADER.get_minmax()
+			gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
 			gFRONT_HEADER.draw_out()
 			front_draw(gFRONT_HEADER.draw_figs)
 			contour2draw_front(gFRONT_HEADER.out_figs)
@@ -1337,7 +1337,7 @@ class OpenFiles(wx.Dialog):
 			front_gerber = gerber.Gerber(GERBER_DIR,FRONT_FILE,OUT_UNIT)
 			tmp_front = gs.Gerber_OP(front_gerber,TOOL_D)
 			tmp_front.gerber2shapely()
-			tmp_front.get_minmax()
+			tmp_front.get_minmax(tmp_front.tmp_figs)
 			tmp_front.draw_out()
 			gFIG_XMAX = tmp_front.xmax
 			gFIG_YMAX = tmp_front.ymax

@@ -110,8 +110,8 @@ def main():
 			f_op.mirror=MIRROR_FRONT
 			f_op.rot_ang=float(ROT_ANG)
 			f_op.merge_polygon()
-			f_op.diff_polygon()
-			f_op.get_minmax()
+			#f_op.diff_polygon()
+			f_op.get_minmax(f_op.figs)
 			center=f_op.center
 		else:
 			CUT_STEP = TOOL_D * CUT_STEP_R_FRONT
@@ -128,8 +128,8 @@ def main():
 				f_op.mirror=MIRROR_FRONT
 				f_op.rot_ang=float(ROT_ANG)
 				f_op.merge_polygon()
-				f_op.diff_polygon_multi()
-				f_op.get_minmax()
+				#f_op.diff_polygon_multi()
+				f_op.get_minmax(f_op.figs)
 				f_op.affine()
 				if i == 0:
 					tmp_xmax = f_op.xmax+CUT_MARGIN_R*TOOL_D
@@ -158,10 +158,10 @@ def main():
 			b_op.rot_ang=float(ROT_ANG)
 			b_op.gerber2shapely()
 			b_op.merge_polygon()
-			b_op.diff_polygon()
+			#b_op.diff_polygon()
 			b_op.mirror=MIRROR_BACK
 			b_op.rot_ang=float(ROT_ANG)
-			b_op.get_minmax()
+			b_op.get_minmax(b_op.figs)
 			#center=b_op.center
 		else:
 			CUT_STEP = TOOL_D * CUT_STEP_R_BACK
@@ -178,8 +178,8 @@ def main():
 				b_op.mirror=MIRROR_BACK
 				b_op.rot_ang=float(ROT_ANG)
 				b_op.merge_polygon()
-				b_op.diff_polygon_multi()
-				b_op.get_minmax()
+				#b_op.diff_polygon_multi()
+				b_op.get_minmax(b_op.figs)
 				b_op.affine()
 				if i == 0:
 					tmp_xmax = b_op.xmax+CUT_MARGIN_R*TOOL_D
@@ -204,7 +204,7 @@ def main():
 		d_op.drill2shapely()
 		d_op.mirror=MIRROR_DRILL
 		d_op.rot_ang=float(ROT_ANG)
-		d_op.get_minmax()
+		d_op.get_minmax(d_op.figs)
 		#center=d_op.center
 	#print "drill center =",center
 	if EDGE_FILE:
@@ -216,7 +216,7 @@ def main():
 		e_op.merge_line()
 		e_op.mirror=MIRROR_EDGE
 		e_op.rot_ang=float(ROT_ANG)
-		e_op.get_minmax()
+		e_op.get_minmax(e_op.figs)
 		#center=e_op.center
 	#print "edge center =",center
 
