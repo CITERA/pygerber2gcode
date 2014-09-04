@@ -110,7 +110,6 @@ def main():
 			f_op.mirror=MIRROR_FRONT
 			f_op.rot_ang=float(ROT_ANG)
 			f_op.merge_polygon()
-			#f_op.diff_polygon()
 			f_op.get_minmax(f_op.figs)
 			center=f_op.center
 		else:
@@ -128,7 +127,6 @@ def main():
 				f_op.mirror=MIRROR_FRONT
 				f_op.rot_ang=float(ROT_ANG)
 				f_op.merge_polygon()
-				#f_op.diff_polygon_multi()
 				f_op.get_minmax(f_op.figs)
 				f_op.affine()
 				if i == 0:
@@ -158,7 +156,6 @@ def main():
 			b_op.rot_ang=float(ROT_ANG)
 			b_op.gerber2shapely()
 			b_op.merge_polygon()
-			#b_op.diff_polygon()
 			b_op.mirror=MIRROR_BACK
 			b_op.rot_ang=float(ROT_ANG)
 			b_op.get_minmax(b_op.figs)
@@ -178,7 +175,6 @@ def main():
 				b_op.mirror=MIRROR_BACK
 				b_op.rot_ang=float(ROT_ANG)
 				b_op.merge_polygon()
-				#b_op.diff_polygon_multi()
 				b_op.get_minmax(b_op.figs)
 				b_op.affine()
 				if i == 0:

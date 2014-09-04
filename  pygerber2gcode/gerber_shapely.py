@@ -1,7 +1,6 @@
 from shapely.geometry import Point,LineString,LinearRing,Polygon,MultiPolygon,box
 from shapely.geometry.polygon import orient
 from shapely.ops import cascaded_union
-from shapely.ops import unary_union
 from shapely.ops import linemerge
 from shapely import affinity
 
@@ -127,7 +126,6 @@ class Gerber_OP:
 			if(gbr.type > 4):
 				continue
 			if(gbr.type == 0):	#Path or Polygon
-				#print gbr.w
 				if gbr.fig_type == 0:	#Circle
 					cap_s=1
 				elif gbr.fig_type == 1:	#Rectangle
@@ -136,15 +134,12 @@ class Gerber_OP:
 					cap_s=1
 				if gbr.polygon:
 					tmp_polygon = Polygon(gbr.points)
-					#print "Polygon",len(gbr.points)
-					#self.raw_figs.add(self.Figs(tmp_polygon))
 					self.tmp_figs.add(self.Figs(tmp_polygon.buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
 					raw_polygon = tmp_polygon.buffer(float(gbr.w)/2.0, cap_style=cap_s)
 					self.raw_figs.add(self.Figs(raw_polygon))
 					if raw_polygon.interiors:
 						for interior in raw_polygon.interiors:
 							self.raw_figs.add(self.Figs(Polygon(interior)))
-					#self.raw_figs.add(self.Figs(tmp_polygon))
 				else:
 					self.tmp_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0+self.tool_r, cap_style=cap_s)))
 					self.raw_figs.add(self.Figs(LineString(gbr.points).buffer(float(gbr.w)/2.0, cap_style=cap_s)))
@@ -191,17 +186,19 @@ class Gerber_OP:
 					merge.append(polygon)
 		tmp = cascaded_union(merge)
 		if tmp.geom_type=='MultiPolygon':
-			for poly in cascaded_union(merge):
+			for poly in tmp:
 				if poly.is_valid:
  					self.figs.add(self.Figs(poly))
-				else:
-					print "Invalid"
+				#else:
+				#	print "Invalid"
 				if poly.interiors:
-					#print "interiors"
 					for inter in poly.interiors:
 					 self.figs.add(self.Figs(Polygon(inter)))
 		elif tmp.geom_type=='Polygon':
 			self.figs.add(self.Figs(tmp))
+			if tmp.interiors:
+				for inter in tmp.interiors:
+				 self.figs.add(self.Figs(Polygon(inter)))
 
 	def merge_line(self):
 		lines=[]
@@ -218,7 +215,6 @@ class Gerber_OP:
 			self.figs.add(self.Figs(linemerge(lines)))
 		else:
 			print "no lines merged"
-
 
 	def count_active_figs(self):
 		i=0
@@ -292,79 +288,19 @@ class Gerber_OP:
 				elif elmt.element.geom_type == 'LinearRing':
 					self.draw_figs.add(self.Polygon(elmt.element.coords))
 				elif elmt.element.geom_type == 'MultiPolygon':
-					#print "multi polygon"
 					for sub_elmt in elmt.element:
 						self.draw_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
 
 				elif elmt.element.geom_type == 'Polygon':
 					self.draw_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
 				elif elmt.element.geom_type == 'Point':
-					#print "Point"
 					self.draw_figs.add(self.Polygon(list(elmt.element.coords)))
-
-	def draw_out_test(self):
-		for elmt in self.raw_figs.elements:
-			if elmt.element.is_empty:
-				continue
-			if elmt.active:
-				if elmt.element.geom_type == 'MultiLineString':
-					for sub_elmt in elmt.element:
-						self.draw_figs.add(self.Polygon(sub_elmt.coords))
-				elif elmt.element.geom_type == 'LineString':
-					self.draw_figs.add(self.Polygon(elmt.element.coords))
-				elif elmt.element.geom_type == 'LinearRing':
-					self.draw_figs.add(self.Polygon(elmt.element.coords))
-				elif elmt.element.geom_type == 'MultiPolygon':
-					#print "multi polygon"
-					for sub_elmt in elmt.element:
-						self.draw_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
-						if sub_elmt.interiors:
-							for interior in sub_elmt.interiors:
-								self.out_figs.add(self.Polygon(list(interior.coords)))
-				elif elmt.element.geom_type == 'Polygon':
-					self.draw_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
-					if elmt.element.interiors:
-						for interior in elmt.element.interiors:
-							self.out_figs.add(self.Polygon(list(interior.coords)))
-				elif elmt.element.geom_type == 'Point':
-					#print "Point"
-					self.draw_figs.add(self.Polygon(list(elmt.element.coords)))
-
-	def fig_out_test(self):
-		for elmt in self.figs.elements:
-			if elmt.element.is_empty:
-				continue
-			if elmt.active:
-				#print elmt.element
-				if elmt.element.geom_type == 'MultiLineString':
-					for sub_elmt in elmt.element:
-						self.out_figs.add(self.Polygon(sub_elmt.coords))
-				elif elmt.element.geom_type == 'LineString':
-					self.out_figs.add(self.Polygon(elmt.element.coords))
-				elif elmt.element.geom_type == 'LinearRing':
-					self.out_figs.add(self.Polygon(elmt.element.coords))
-				elif elmt.element.geom_type == 'MultiPolygon':
-					#print "multi polygon"
-					for sub_elmt in elmt.element:
-						self.out_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
-						if sub_elmt.interiors:
-							for interior in sub_elmt.interiors:
-								self.out_figs.add(self.Polygon(list(interior.coords)))
-				elif elmt.element.geom_type == 'Polygon':
-					self.out_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
-					if elmt.element.interiors:
-						for interior in elmt.element.interiors:
-							self.out_figs.add(self.Polygon(list(interior.coords)))
-				elif elmt.element.geom_type == 'Point':
-					#print "Point"
-					self.out_figs.add(self.Polygon(list(elmt.element.coords)))
 
 	def fig_out(self):
 		for elmt in self.figs.elements:
 			if elmt.element.is_empty:
 				continue
 			if elmt.active:
-				#print elmt.element
 				if elmt.element.geom_type == 'MultiLineString':
 					for sub_elmt in elmt.element:
 						self.out_figs.add(self.Polygon(sub_elmt.coords))
@@ -373,12 +309,10 @@ class Gerber_OP:
 				elif elmt.element.geom_type == 'LinearRing':
 					self.out_figs.add(self.Polygon(elmt.element.coords))
 				elif elmt.element.geom_type == 'MultiPolygon':
-					#print "multi polygon"
 					for sub_elmt in elmt.element:
 						self.out_figs.add(self.Polygon(list(sub_elmt.exterior.coords)))
 				elif elmt.element.geom_type == 'Polygon':
 					self.out_figs.add(self.Polygon(list(elmt.element.exterior.coords)))
 				elif elmt.element.geom_type == 'Point':
-					#print "Point"
 					self.out_figs.add(self.Polygon(list(elmt.element.coords)))
 

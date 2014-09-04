@@ -471,10 +471,7 @@ class MainFrame(wx.Frame):
 				gFRONT_HEADER.mirror=MIRROR_FRONT
 				gFRONT_HEADER.rot_ang=float(ROT_ANG)
 				gFRONT_HEADER.gerber2shapely()
-				#gFRONT_HEADER.draw_out()
-				#front_draw(gFRONT_HEADER.draw_figs)
 				gFRONT_HEADER.merge_polygon()
-				#gFRONT_HEADER.diff_polygon()
 				gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
 				center=gFRONT_HEADER.center
 			else:
@@ -488,7 +485,6 @@ class MainFrame(wx.Frame):
 				progress.SetSize((300, 100))
 				for i in range(int(CUT_MAX_FRONT)):
 					pp=((i+1)*100)/int(CUT_MAX_FRONT)
-					#print pp,i
 					gFRONT_HEADER = gs.Gerber_OP(front_gerber,TOOL_D+i*CUT_STEP)
 					gFRONT_HEADER.gerber2shapely()
 					gFRONT_HEADER.in_unit=IN_UNIT
@@ -496,7 +492,6 @@ class MainFrame(wx.Frame):
 					gFRONT_HEADER.mirror=MIRROR_FRONT
 					gFRONT_HEADER.rot_ang=float(ROT_ANG)
 					gFRONT_HEADER.merge_polygon()
-					#gFRONT_HEADER.diff_polygon_multi()
 					gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
 					#gFRONT_HEADER.affine()
 					if i == 0:
@@ -528,7 +523,6 @@ class MainFrame(wx.Frame):
 				gBACK_HEADER.rot_ang=float(ROT_ANG)
 				gBACK_HEADER.gerber2shapely()
 				gBACK_HEADER.merge_polygon()
-				#gBACK_HEADER.diff_polygon()
 				gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
 				if not FRONT_FILE:
 					center=gBACK_HEADER.center
@@ -550,7 +544,6 @@ class MainFrame(wx.Frame):
 					gBACK_HEADER.mirror=MIRROR_BACK
 					gBACK_HEADER.rot_ang=float(ROT_ANG)
 					gBACK_HEADER.merge_polygon()
-					#gBACK_HEADER.diff_polygon_multi()
 					gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
 					#gBACK_HEADER.affine()
 					if i == 0:
