@@ -32,12 +32,6 @@ class Gerber_OP:
 		self.circle_ang = 20
 		self.drill_circle_ang = 20
 		self.drill_asobi = tool_d/10.0
-	class Polygon_shape:
-		def __init__(self, points, active = 1,fig_type=0,r=0):
-			self.element = Polygon(points)
-			self.active = active
-			self.fig_type = fig_type
-			self.r = r
 	class Figs:
 		#def __init__(self, element, active = 1,fig_type=0,r=0):
 		def __init__(self, element, active = 1):
@@ -67,11 +61,11 @@ class Gerber_OP:
 			elif drl.type == 1:
 				if drl.d > self.tool_d:
 					#print "lager than drill d", drl.d,self.tool_d
-					self.figs.add(self.Figs(LineString(drl.point1,drl.point2).buffer(float(drl.d)/2.0-float(self.tool_d)/2.0+self.drill_asobi,resolution=self.drill_circle_ang)))
-					self.raw_figs.add(self.Figs(LineString(drl.point1,drl.point2).buffer(float(drl.d)/2.0,resolution=self.drill_circle_ang)))
+					self.figs.add(self.Figs(LineString([drl.point1,drl.point2]).buffer(float(drl.d)/2.0-float(self.tool_d)/2.0+self.drill_asobi,resolution=self.drill_circle_ang)))
+					self.raw_figs.add(self.Figs(LineString([drl.point1,drl.point2]).buffer(float(drl.d)/2.0,resolution=self.drill_circle_ang)))
 				else:
-					self.figs.add(self.Figs(LineString(drl.point1,drl.point2)))
-					self.raw_figs.add(self.Figs(LineString(drl.point1,drl.point2).buffer(float(self.tool_d)/2.0,resolution=self.drill_circle_ang)))
+					self.figs.add(self.Figs(LineString([drl.point1,drl.point2])))
+					self.raw_figs.add(self.Figs(LineString([drl.point1,drl.point2]).buffer(float(self.tool_d)/2.0,resolution=self.drill_circle_ang)))
 	def edge2shapely(self):
 		for gbr in self.gerber.figures:
 			if(gbr.active < 1):
