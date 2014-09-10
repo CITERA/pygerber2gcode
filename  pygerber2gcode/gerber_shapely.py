@@ -39,7 +39,8 @@ class Gerber_OP:
 			self.fig_type = fig_type
 			self.r = r
 	class Figs:
-		def __init__(self, element, active = 1,fig_type=0,r=0):
+		#def __init__(self, element, active = 1,fig_type=0,r=0):
+		def __init__(self, element, active = 1):
 			self.element = element
 			self.active = active
 	class Polygon:

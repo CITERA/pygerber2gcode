@@ -474,7 +474,7 @@ class Gerber:
 		#SF
 		elif (gerber.find("SF",1,index_d) !=-1):
 			#print "SF is not supported:" + gerber
-			g54_FLAG = 1
+			self.g54_sw = 1
 		#IJ
 		elif (gerber.find("IJ",1,index_d) !=-1):
 			print "IJ is not supported:" + gerber

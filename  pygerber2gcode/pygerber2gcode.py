@@ -175,10 +175,17 @@ gMouseLeftDown = [0]*3
 gMouseRightDown = [0]*3
 gPROGRESS = 0
 gPROGRESS_MSG = "Start Conversions ..."
+
+class RedirectText(object):
+	def __init__(self,aWxTextCtrl):
+		self.out=aWxTextCtrl
+	def write(self, string):
+		wx.CallAfter(self.out.WriteText, string)
 #Window
 class MainFrame(wx.Frame):
 	def __init__(self, parent, id, title):
 		wx.Frame.__init__(self, parent, id, title, size=(WINDOW_X, WINDOW_Y))
+
 		# Setting up the menu.
 		filemenu= wx.Menu()
 		menuOpen = filemenu.Append(wx.ID_OPEN,"&Open/Save","Gerber Open/G-code Save files")
@@ -272,11 +279,23 @@ class MainFrame(wx.Frame):
 		hbox5.Add(btn2, 0, wx.LEFT | wx.BOTTOM , 5)
 		vbox.Add(hbox5, 0, wx.ALIGN_RIGHT | wx.RIGHT, 10)
 
+		#msg_box = wx.BoxSizer(wx.HORIZONTAL)
+		#msg = wx.TextCtrl(panel, wx.ID_ANY,style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+		msg = wx.TextCtrl(panel, wx.ID_ANY,size=(1000,50),style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+		#msg_box.Add(msg, flag=wx.GROW)
+		#vbox.Add(msg_box, 0, wx.ALIGN_LEFT | wx.RIGHT, 10)
+		#vbox.Add(msg_box)
+		vbox.Add(msg, flag=wx.GROW)
 		panel.SetSizer(vbox)
+
 		self.Centre()
 		self.Show(True)
-
-
+		# redirect text here
+		redir=RedirectText(msg)
+		sys.stdout=redir
+		#Redraw
+		#self.Bind(wx.EVT_PAINT, self.paint.OnPaint)
+		#wx.EVT_PAINT(self,self.paint.OnPaint)
 		#Event
 		self.Bind(wx.EVT_CHECKBOX, self.OnFront,self.cb0)
 		self.Bind(wx.EVT_CHECKBOX, self.OnBack,self.cb1)
@@ -289,8 +308,7 @@ class MainFrame(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.OnConvert, btn1)
 		self.Bind(wx.EVT_BUTTON, self.OnFit,fit_btn)
 		self.Bind(wx.EVT_BUTTON, self.OnCenter,center_btn)
-		#Redraw
-		self.Bind(wx.EVT_PAINT, self.paint.OnPaint)
+		self.Bind(wx.EVT_CLOSE,self.OnExit)
 	#functions
 	def OnLoadConf(self,e):
 		global CONFIG_FILE
@@ -346,7 +364,8 @@ class MainFrame(wx.Frame):
 		gDISP_EDGE = int(self.cb3.IsChecked())
 		self.Refresh(1)
 	def OnFrontContour(self,e):
-		global gDISP_CONTOUR_FRONT, gDRAWCONTOUR
+		global gDISP_CONTOUR_FRONT
+		#global gDRAWCONTOUR
 		if(len(gDRAWCONTOUR) > 0):
 			gDISP_CONTOUR_FRONT = int(self.cb4.IsChecked())
 		else:
@@ -354,7 +373,8 @@ class MainFrame(wx.Frame):
 			self.cb4.SetValue(0)
 		self.Refresh(1)
 	def OnBackContour(self,e):
-		global gDISP_CONTOUR_BACK, gDRAWCONTOUR_BACK
+		global gDISP_CONTOUR_BACK
+		#global gDRAWCONTOUR_BACK
 		if(len(gDRAWCONTOUR_BACK) > 0):
 			gDISP_CONTOUR_BACK = int(self.cb5.IsChecked())
 		else:
@@ -362,7 +382,7 @@ class MainFrame(wx.Frame):
 			self.cb5.SetValue(0)
 		self.Refresh(1)
 	def OnExit(self,e):
-		self.Close(True)  # Close the frame.
+		#self.Close(True)  # Close the frame.
 		sys.exit()
 	def OnSetup(self,e):
 		setup = MachineSetup(None, -1, 'Machine Setup')
@@ -375,8 +395,9 @@ class MainFrame(wx.Frame):
 		setup.Destroy()
 
 	def OnReload(self,e):
-		global gPATTERNS,gBACK_PATTERNS, gDRAWDRILL,gDRAWDRILL_LINE, gDRAWEDGE, gDISP_FRONT, gDISP_DRILL, gDISP_EDGE, gPOLYGONS,gDRAWCONTOUR
-		global gFRONT_HEADER,gBACK_HEADER,gDRILL_HEADER,gEDGE_HEADER
+		global gPATTERNS,gBACK_PATTERNS, gDRAWDRILL,gDRAWDRILL_LINE, gDRAWEDGE, gPOLYGONS, gDRAWCONTOUR
+		#global gDISP_FRONT, gDISP_DRILL, gDISP_EDGE
+		#global gFRONT_HEADER,gBACK_HEADER,gDRILL_HEADER,gEDGE_HEADER
 		global gMAG,gDRAW_XSHIFT, gDRAW_YSHIFT
 		global gFIG_XMAX,gFIG_YMAX,gFIG_XMIN,gFIG_YMIN,gFIG_CX,gFIG_CY
 		#initialize
@@ -435,7 +456,8 @@ class MainFrame(wx.Frame):
 			edge_draw(tmp_edge.draw_figs)
 
 	def OnOpen(self,e):
-		global gPATTERNS,gBACK_PATTERNS, gDRAWDRILL, gDRAWDRILL_LINE, gDRAWEDGE, gDISP_FRONT,gDISP_BACK, gDISP_DRILL, gDISP_EDGE
+		#global gPATTERNS,gBACK_PATTERNS, gDRAWDRILL, gDRAWDRILL_LINE, gDRAWEDGE
+		global gDISP_FRONT,gDISP_BACK, gDISP_DRILL, gDISP_EDGE
 		setup = OpenFiles(None, -1, 'Gerber Open/G-code Save files')
 		setup.ShowModal()
 		setup.Destroy()
@@ -455,59 +477,52 @@ class MainFrame(wx.Frame):
 			self.cb3.SetValue(gDISP_EDGE)
 		self.Refresh(1)
 	def OnGenerate(self,e):
-		global gPOLYGONS
+		#global gPOLYGONS
 		global gDISP_CONTOUR_FRONT,gDISP_CONTOUR_BACK
 		global gFRONT_HEADER,gBACK_HEADER,gDRILL_HEADER,gEDGE_HEADER
 		global gMAG,gDRAW_XSHIFT, gDRAW_YSHIFT
 		global gFIG_XMAX,gFIG_YMAX,gFIG_XMIN,gFIG_YMIN,gFIG_CX,gFIG_CY
+		global CUT_MAX_FRONT,CUT_MAX_BACK
 		size = self.paint.GetSize()
 
 		if FRONT_FILE:
 			front_gerber = gerber.Gerber(GERBER_DIR,FRONT_FILE,OUT_UNIT)
 			if not CUT_ALL_FRONT:
-				gFRONT_HEADER = gs.Gerber_OP(front_gerber,TOOL_D)
+				CUT_MAX_FRONT = 1
+			CUT_STEP = float(TOOL_D) * float(CUT_STEP_R_FRONT)
+			tmp_elements = []
+			tmp_xmax = 0.0
+			tmp_ymax = 0.0
+			tmp_xmin = 0.0
+			tmp_ymin = 0.0
+			progress = wx.ProgressDialog("Front Progress",'Front Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+			progress.SetSize((300, 100))
+			for i in range(int(CUT_MAX_FRONT)):
+				pp=((i+1)*100)/int(CUT_MAX_FRONT)
+				gFRONT_HEADER = gs.Gerber_OP(front_gerber,TOOL_D+i*CUT_STEP)
+				gFRONT_HEADER.gerber2shapely()
 				gFRONT_HEADER.in_unit=IN_UNIT
 				gFRONT_HEADER.out_unit=OUT_UNIT
 				gFRONT_HEADER.mirror=MIRROR_FRONT
 				gFRONT_HEADER.rot_ang=float(ROT_ANG)
-				gFRONT_HEADER.gerber2shapely()
 				gFRONT_HEADER.merge_polygon()
 				gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
-				center=gFRONT_HEADER.center
-			else:
-				CUT_STEP = float(TOOL_D) * float(CUT_STEP_R_FRONT)
-				tmp_elements = []
-				tmp_xmax = 0.0
-				tmp_ymax = 0.0
-				tmp_xmin = 0.0
-				tmp_ymin = 0.0
-				progress = wx.ProgressDialog("Front Progress",'Front Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
-				progress.SetSize((300, 100))
-				for i in range(int(CUT_MAX_FRONT)):
-					pp=((i+1)*100)/int(CUT_MAX_FRONT)
-					gFRONT_HEADER = gs.Gerber_OP(front_gerber,TOOL_D+i*CUT_STEP)
-					gFRONT_HEADER.gerber2shapely()
-					gFRONT_HEADER.in_unit=IN_UNIT
-					gFRONT_HEADER.out_unit=OUT_UNIT
-					gFRONT_HEADER.mirror=MIRROR_FRONT
-					gFRONT_HEADER.rot_ang=float(ROT_ANG)
-					gFRONT_HEADER.merge_polygon()
-					gFRONT_HEADER.get_minmax(gFRONT_HEADER.figs)
-					#gFRONT_HEADER.affine()
-					if i == 0:
-						tmp_xmax = gFRONT_HEADER.xmax+CUT_MARGIN_R*TOOL_D
-						tmp_ymax = gFRONT_HEADER.ymax+CUT_MARGIN_R*TOOL_D
-						tmp_xmin = gFRONT_HEADER.xmin-CUT_MARGIN_R*TOOL_D
-						tmp_ymin = gFRONT_HEADER.ymin-CUT_MARGIN_R*TOOL_D
-						center=gFRONT_HEADER.center
-					gFRONT_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
-					tmp_poly_num=gFRONT_HEADER.count_active_figs()
-					progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_FRONT)+", Number of Polygons"+str(tmp_poly_num))
-					tmp_elements += gFRONT_HEADER.figs.elements
-					if tmp_poly_num < 2:
-						progress.Update(100, 'No new polygons')
-						break
-				gFRONT_HEADER.figs.elements=tmp_elements
+				#gFRONT_HEADER.affine()
+				if i == 0:
+					tmp_xmax = gFRONT_HEADER.xmax+CUT_MARGIN_R*TOOL_D
+					tmp_ymax = gFRONT_HEADER.ymax+CUT_MARGIN_R*TOOL_D
+					tmp_xmin = gFRONT_HEADER.xmin-CUT_MARGIN_R*TOOL_D
+					tmp_ymin = gFRONT_HEADER.ymin-CUT_MARGIN_R*TOOL_D
+					center=gFRONT_HEADER.center
+				gFRONT_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
+				tmp_poly_num=gFRONT_HEADER.count_active_figs()
+				progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_FRONT)+", Number of Polygons"+str(tmp_poly_num))
+				tmp_elements += gFRONT_HEADER.figs.elements
+				if tmp_poly_num < 2:
+					progress.Update(100, 'No new polygons')
+					break
+			gFRONT_HEADER.figs.elements=tmp_elements
+		progress.Destroy()
 		xoff=0.0
 		yoff=0.0
 		if PATTERN_SHIFT:
@@ -516,52 +531,43 @@ class MainFrame(wx.Frame):
 		if BACK_FILE:
 			back_gerber = gerber.Gerber(GERBER_DIR,BACK_FILE,OUT_UNIT)
 			if not CUT_ALL_BACK:
-				gBACK_HEADER = gs.Gerber_OP(back_gerber,TOOL_D)
+				CUT_MAX_BACK = 1
+			CUT_STEP = float(TOOL_D) * float(CUT_STEP_R_BACK)
+			tmp_elements = []
+			tmp_xmax = 0.0
+			tmp_ymax = 0.0
+			tmp_xmin = 0.0
+			tmp_ymin = 0.0
+			progress = wx.ProgressDialog("Back Progress",'Back Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
+			progress.SetSize((300, 100))
+			for i in range(CUT_MAX_BACK):
+				pp=((i+1)*100)/int(CUT_MAX_BACK)
+				gBACK_HEADER = gs.Gerber_OP(back_gerber,TOOL_D+i*CUT_STEP)
+				gBACK_HEADER.gerber2shapely()
 				gBACK_HEADER.in_unit=IN_UNIT
 				gBACK_HEADER.out_unit=OUT_UNIT
 				gBACK_HEADER.mirror=MIRROR_BACK
 				gBACK_HEADER.rot_ang=float(ROT_ANG)
-				gBACK_HEADER.gerber2shapely()
 				gBACK_HEADER.merge_polygon()
 				gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
-				if not FRONT_FILE:
-					center=gBACK_HEADER.center
-			else:
-				CUT_STEP = float(TOOL_D) * float(CUT_STEP_R_BACK)
-				tmp_elements = []
-				tmp_xmax = 0.0
-				tmp_ymax = 0.0
-				tmp_xmin = 0.0
-				tmp_ymin = 0.0
-				progress = wx.ProgressDialog("Back Progress",'Back Progress', maximum = 100, parent=self, style = wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE | wx.PD_APP_MODAL)
-				progress.SetSize((300, 100))
-				for i in range(CUT_MAX_BACK):
-					pp=((i+1)*100)/int(CUT_MAX_BACK)
-					gBACK_HEADER = gs.Gerber_OP(back_gerber,TOOL_D+i*CUT_STEP)
-					gBACK_HEADER.gerber2shapely()
-					gBACK_HEADER.in_unit=IN_UNIT
-					gBACK_HEADER.out_unit=OUT_UNIT
-					gBACK_HEADER.mirror=MIRROR_BACK
-					gBACK_HEADER.rot_ang=float(ROT_ANG)
-					gBACK_HEADER.merge_polygon()
-					gBACK_HEADER.get_minmax(gBACK_HEADER.figs)
-					#gBACK_HEADER.affine()
-					if i == 0:
-						tmp_xmax = gBACK_HEADER.xmax+CUT_MARGIN_R*TOOL_D
-						tmp_ymax = gBACK_HEADER.ymax+CUT_MARGIN_R*TOOL_D
-						tmp_xmin = gBACK_HEADER.xmin-CUT_MARGIN_R*TOOL_D
-						tmp_ymin = gBACK_HEADER.ymin-CUT_MARGIN_R*TOOL_D
-					gBACK_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
-					if len(gBACK_HEADER.figs.elements) < 1:
-						break
-					tmp_poly_num=gBACK_HEADER.count_active_figs()
-					#tmp_poly_num=len(gBACK_HEADER.figs.elements)
-					progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_BACK)+", Number of Polygons"+str(tmp_poly_num))
-					tmp_elements += gBACK_HEADER.figs.elements
-					if tmp_poly_num < 2:
-						progress.Update(100, 'No new polygons')
-						break
-				gBACK_HEADER.figs.elements=tmp_elements
+				#gBACK_HEADER.affine()
+				if i == 0:
+					tmp_xmax = gBACK_HEADER.xmax+CUT_MARGIN_R*TOOL_D
+					tmp_ymax = gBACK_HEADER.ymax+CUT_MARGIN_R*TOOL_D
+					tmp_xmin = gBACK_HEADER.xmin-CUT_MARGIN_R*TOOL_D
+					tmp_ymin = gBACK_HEADER.ymin-CUT_MARGIN_R*TOOL_D
+				gBACK_HEADER.limit_cut(tmp_xmax,tmp_ymax,tmp_xmin,tmp_ymin)
+				if len(gBACK_HEADER.figs.elements) < 1:
+					break
+				tmp_poly_num=gBACK_HEADER.count_active_figs()
+				#tmp_poly_num=len(gBACK_HEADER.figs.elements)
+				progress.Update(pp, 'Loop No. '+ str(i+1)+"/"+str(CUT_MAX_BACK)+", Number of Polygons"+str(tmp_poly_num))
+				tmp_elements += gBACK_HEADER.figs.elements
+				if tmp_poly_num < 2:
+					progress.Update(100, 'No new polygons')
+					break
+			gBACK_HEADER.figs.elements=tmp_elements
+		progress.Destroy()
 		#print "back center =",center
 		if DRILL_FILE:
 			#print "drill"
@@ -649,7 +655,8 @@ class MainFrame(wx.Frame):
 		dlg = wx.MessageDialog(self, "Contour generation is finished", "Contour generation is finished" , wx.OK)
 		dlg.ShowModal() # Shows it
 		dlg.Destroy()
-		self.Refresh(1)
+		#self.Refresh(1)
+		#e.Skip()
 	def OnConvert(self,e):
 		a_gcd = gcode.Gcode()
 		set_gcode(a_gcd)
@@ -696,12 +703,12 @@ class Paint(wx.ScrolledWindow):
 		self.parentW = parent
 		#print self.GetSize(),parent.GetSize()
 		
-		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(gPAINTWINDOW_X/gSCROLL_DX),int(gPAINTWINDOW_Y/gSCROLL_DY));
+		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(gPAINTWINDOW_X/gSCROLL_DX),int(gPAINTWINDOW_Y/gSCROLL_DY))
 		self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
 
 		#self.Bind(wx.EVT_PAINT, self.OnPaint)
-		#wx.EVT_SIZE(self, self.OnSize)
-		self.Bind(wx.EVT_SIZE, self.OnSize)
+		wx.EVT_SIZE(self, self.OnSize)
+		#self.Bind(wx.EVT_SIZE, self.OnSize)
 		self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
 		self.Bind(wx.EVT_LIST_BEGIN_DRAG, self.OnDrag)
 		self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseLeftDown)
@@ -715,9 +722,12 @@ class Paint(wx.ScrolledWindow):
 		#wx.EVT_SCROLL(self,self.OnScroll)
 		#self.Bind(wx.EVT_COMMAND_SCROLL,self.OnScroll)
 		self.Bind(wx.EVT_SCROLLWIN,self.OnScroll)
-
+		self.OnSize(None)
 	def OnSize(self, e):
-		self.Refresh(True)
+		Size  = self.ClientSize
+		self._Buffer = wx.EmptyBitmap(*Size)
+		self.UpdateDrawing()
+
 	def OnScroll(self, e):
 		global gDRAW_XSHIFT,gDRAW_YSHIFT,gPRE_SCROLL_X ,gPRE_SCROLL_Y
 		#print e.CalcScrollInc()
@@ -750,13 +760,23 @@ class Paint(wx.ScrolledWindow):
 		#self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY))
 		#print self.GetPosition()
 		#print self.GetOrientation()
-		self.Refresh(True)
+		#self.Refresh(True)
+		self.UpdateDrawing()
 	#gerber
+	def UpdateDrawing(self):
+		dc = wx.MemoryDC()
+		dc.SelectObject(self._Buffer)
+		#self.Draw(dc)
+		del dc # need to get rid of the MemoryDC before Update() is called.
+		self.Refresh()
+		self.Update()
 	def OnPaint(self, e):
 		global CENTER_X, CENTER_Y
 		#USE_BUFFERED_DC:
-		#dc = wx.BufferedPaintDC(self)
-		dc = wx.PaintDC(self)
+		dc = wx.BufferedPaintDC(self, self._Buffer)
+		#dc = wx.PaintDC(self)
+		dc.SetBackground(wx.Brush("White"))
+		dc.Clear() 
 		paint_size = self.GetSize()
 		#print paint_size,self.parentW.GetSize()
 		#print paint_size
@@ -862,9 +882,10 @@ class Paint(wx.ScrolledWindow):
 		paint_window_x = int(gMAG * gPAINTWINDOW_X)
 		paint_window_y = int(gMAG * gPAINTWINDOW_Y)
 
-		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY));
+		self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY))
 		self.EnableScrolling(True,True)
-		self.Refresh(True)
+		#self.Refresh(True)
+		self.UpdateDrawing()
 	def OnDrag(self, event):
 		pos = event.GetPosition()
 		# "Drag: pos=" + str(pos)
@@ -929,8 +950,8 @@ class Paint(wx.ScrolledWindow):
 			elif(gPAINTWINDOW_Y_MIN > gPAINTWINDOW_Y):
 				paint_window_y = gPAINTWINDOW_Y_MIN
 			self.SetScrollbars(gSCROLL_DX, gSCROLL_DY, int(paint_window_x/gSCROLL_DX),int(paint_window_y/gSCROLL_DY))
-			self.Refresh(True)
-			
+			#self.Refresh(True)
+			self.UpdateDrawing()
 	def OnMouseRightUp(self, event):
 		#global gMouseRightDown, gMAG
 		pos = event.GetPosition()
@@ -961,11 +982,13 @@ class Paint(wx.ScrolledWindow):
 		cdc = wx.ClientDC(self)
 
 		if gMouseRightDown[0]:
-			self.Refresh(1)
+			#self.Refresh(1)
+			self.UpdateDrawing()
 			cdc.SetPen(wx.Pen(DIST_COLOR, 1, wx.SOLID))
 			cdc.DrawLines(([gMouseRightDown[1],gMouseRightDown[2]],[pos.x,pos.y]))
 		if gMouseLeftDown[0]:
-			self.Refresh(1)
+			#self.Refresh(1)
+			self.UpdateDrawing()
 			dx = pos.x - gMouseLeftDown[1]
 			dy = pos.y - gMouseLeftDown[2]
 			x = gMouseLeftDown[1]
@@ -1310,8 +1333,8 @@ class OpenFiles(wx.Dialog):
 		global gPATTERNS,gBACK_PATTERNS, gDRAWDRILL,gDRAWDRILL_LINE, gDRAWEDGE, gDRAWCONTOUR,gDRAWCONTOUR_BACK
 		global FRONT_FILE,BACK_FILE,DRILL_FILE,EDGE_FILE, OUT_FRONT_FILE,OUT_BACK_FILE ,OUT_DRILL_FILE, OUT_EDGE_FILE,OUT_ALL_FILE
 		global MIRROR_FRONT, MIRROR_BACK, MIRROR_DRILL, MIRROR_EDGE, ROT_ANG
-		global gFRONT, gBACK
-		global gFRONT_HEADER,gBACK_HEADER,gDRILL_HEADER,gEDGE_HEADER
+		#global gFRONT, gBACK
+		#global gFRONT_HEADER,gBACK_HEADER,gDRILL_HEADER,gEDGE_HEADER
 		global CUT_STEP_R_FRONT,CUT_STEP_R_BACK,CUT_MAX_FRONT,CUT_MAX_BACK,CUT_ALL_FRONT,CUT_ALL_BACK
 		global gFIG_XMAX,gFIG_YMAX,gFIG_XMIN,gFIG_YMIN,gFIG_CX,gFIG_CY
 		global gMAG,gDRAW_XSHIFT, gDRAW_YSHIFT
@@ -1549,7 +1572,8 @@ class MachineSetup(wx.Dialog):
 		self.Bind(wx.EVT_BUTTON, self.OnClose, button2)
 
 	def OnApply(self,e):
-		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED,DRILL_Z_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
+		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, XY_SPEED, Z_SPEED, DRILL_SPEED,DRILL_Z_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
+		#global LEFT_X, LOWER_Y
 		INI_X = float(self.inix.GetValue())
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
@@ -1572,7 +1596,8 @@ class MachineSetup(wx.Dialog):
 	def OnClose(self,e):
 		self.Close(True)  # Close the frame.
 	def OnSave(self,e):
-		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED,DRILL_Z_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
+		global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, XY_SPEED, Z_SPEED, DRILL_SPEED,DRILL_Z_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP
+		#global LEFT_X, LOWER_Y
 		INI_X = float(self.inix.GetValue())
 		INI_Y = float(self.iniy.GetValue())
 		INI_Z = float(self.iniz.GetValue())
@@ -1845,7 +1870,9 @@ def main():
 	else:
 		read_config(CONFIG_FILE)
 	set_unit()
-	app = wx.App()
+	#app = wx.App()
+	#app = wx.App(redirect=True)
+	app = wx.App(redirect=False)
 	MainFrame(None, -1, 'pyGerber2Gcode')
 	app.MainLoop()
 def set_unit():
@@ -1977,7 +2004,7 @@ def save_config():
 	out.write(config_data)
 	out.close()
 def read_config(config_file):
-	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT,DRILL_ENDMILL
+	global INI_X, INI_Y, INI_Z, MOVE_HEIGHT, OUT_INCH_FLAG, IN_INCH_FLAG, MCODE_FLAG, XY_SPEED, Z_SPEED, LEFT_X, LOWER_Y, DRILL_SPEED, DRILL_Z_SPEED, DRILL_DEPTH, CUT_DEPTH, TOOL_D, DRILL_D, EDGE_TOOL_D, EDGE_DEPTH, EDGE_SPEED, EDGE_Z_SPEED, Z_STEP, GERBER_EXT, DRILL_EXT, EDGE_EXT, GCODE_EXT, GDRILL_EXT, GEDGE_EXT,DRILL_ENDMILL
 	global GERBER_COLOR, DRILL_COLOR, EDGE_COLOR , CONTOUR_COLOR,CONTOUR_BACK_COLOR
 	global GERBER_DIR,FRONT_FILE,BACK_FILE,DRILL_FILE,EDGE_FILE,MIRROR_FRONT,MIRROR_BACK,MIRROR_DRILL,MIRROR_EDGE,ROT_ANG
 	global OUT_DIR,OUT_FRONT_FILE,OUT_BACK_FILE,OUT_DRILL_FILE,OUT_EDGE_FILE,OUT_ALL_FILE
@@ -2039,7 +2066,7 @@ def read_config(config_file):
 				if(cfg.group(1)=="Z_STEP"):
 					Z_STEP = float(cfg.group(2))
 				if(cfg.group(1)=="GERBER_COLOR"):
-					GERBER_COLO = str(cfg.group(2))
+					GERBER_COLOR = str(cfg.group(2))
 				if(cfg.group(1)=="DRILL_COLOR"):
 					DRILL_COLOR = str(cfg.group(2))
 				if(cfg.group(1)=="EDGE_COLOR"):

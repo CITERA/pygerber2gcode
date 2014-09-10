@@ -1,5 +1,6 @@
 pygerber2gcode.py : GUI version
-pygerber2gcode_cui.py : CUI version. For test
+pygerber2gcode_cui.py : CUI version.
+pygerber2gcode4test.py : CUI version. Simple code for test
 
 pyg2g.conf : default configure file
 
@@ -7,5 +8,8 @@ gcode.py : For Converting to G-code
 gerger.py : For Reading Gerber file
 
 Required modules
-- wxPython
 - Shapely
+- wxPython
+--For GUI
+- matplotlib
+--For CUI

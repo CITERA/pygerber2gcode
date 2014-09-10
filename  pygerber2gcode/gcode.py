@@ -236,6 +236,6 @@ class Box:
 			y1=y2
 			y2=tmp_y
 
-		return Path(height,xy_speed,z_speed,[(x1,y1),(x1,y2),(x2,y2),(x2,y1),(x1,y1)]);
+		return Path(height,xy_speed,z_speed,[(x1,y1),(x1,y2),(x2,y2),(x2,y1),(x1,y1)])	#
 
 #Zaguri
