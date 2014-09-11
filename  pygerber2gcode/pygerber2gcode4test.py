@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-import os
-import sys
-import re
+#import os
+#import sys
+#import re
 import gerber
 import gcode
-import math
+#import math
 import gerber_shapely as gs
 
 #for Display
