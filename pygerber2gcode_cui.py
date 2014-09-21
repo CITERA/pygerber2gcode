@@ -1,4 +1,4 @@
-#!/usr/bin/pypy
+#!/usr/bin/env pypy
 # coding: UTF-8
 
 from string import *
